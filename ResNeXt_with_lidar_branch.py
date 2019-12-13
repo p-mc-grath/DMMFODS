@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 from torch.nn.modules.batchnorm import _BatchNorm
 import torch.utils.checkpoint as cp
-import torch.cat as cat
 
 import logging
 from collections import OrderedDict
@@ -11,8 +10,7 @@ from collections import OrderedDict
 from mmcv.cnn import constant_init, kaiming_init
 from mmcv.runner import load_checkpoint
 from mmcv.runner import load_state_dict
-from mmcv.runner import load_url_dist
-from mmcv.runner import get_torchvision_models
+import mmcv.runner
 
 from ..registry import BACKBONES
 from ..utils import ConvModule
@@ -124,9 +122,9 @@ class ResNeXt_with_lidar_branch(ResNeXt):
             raise TypeError('the model name passed to weight init is not supported')
 
         # (1)download torchvision model
-        model_urls = get_torchvision_models()
+        model_urls = mmcv.runner.get_torchvision_models()
         model_name = filename[14:]
-        checkpoint = load_url_dist(model_urls[model_name])
+        checkpoint = mmcv.runner.load_url_dist(model_urls[model_name])
         
         # (2) get state_dict from checkpoint
         if isinstance(checkpoint, OrderedDict):
@@ -224,7 +222,7 @@ class ResNeXt_with_lidar_branch(ResNeXt):
         while(width_x<width_rgb_data):
             rgb_data = m(rgb_data)
         
-        x = cat((x, rgb_data, lidar_data), 0)
+        x = torch.cat((x, rgb_data, lidar_data), 0)
 
         return x, rgb_data, lidar_data
     
@@ -261,7 +259,7 @@ class ResNeXt_with_lidar_branch(ResNeXt):
             # concatenate processed lidar data and resnet's mainstream i.e. processed rgb data
             # pass through fusion_layer
             if i == self.fusion_block:
-                x = cat((lidar_data_pre_proc, x), 0)
+                x = torch.cat((lidar_data_pre_proc, x), 0)
                 fusion_layer = getattr(self, self.fusion_layer)
                 x = fusion_layer(x)
             
