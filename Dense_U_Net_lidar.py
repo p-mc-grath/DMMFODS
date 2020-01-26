@@ -17,21 +17,27 @@ class Dense_U_Net_lidar(nn.Module):
     '''
     * adds blocks to process lidar data seprately
     * adds concat layer to join rgb and lidar features
-    If  - growth_rate
+    * replaces classifier with decoder and results in heatmap for each class
+
+    If  - growth_rate       as in original and pretrained=True
         - block_config
         - num_init_features
-    as in original and pretrained=True
-    then pytorch pretrained densenet weights are used    
-    therefore the encoder is called self.features 
+    then pytorch pretrained densenet weights are used (therefore the encoder is called self.features )   
 
-    arg: concat_before_block -> concat of lidar and rgb directly before block after transition layer
-            !!assert: concat_before_block>=2
+    Args:   concat_before_block -> concat of lidar and rgb directly before block after transition layer
+            assert: concat_before_block>=2
     
-    right now only one lidar block possible 
-    for forward pass: (W_lidar, H_lidar) == (W_rgb/4, H_rgb/4) if concat_before_block_num=2
+    for forward pass if concat_before_block_num=2: (W_lidar, H_lidar) == (W_rgb/4, H_rgb/4) 
+    
+    potential mods: (1) use max pool in transition layers instead of avg pool
+                        with return_indices=True 
+                        use maxunpool2d with corresponding indices in upsampling
+                        !weights still same because no weight op!
+                    (2) Processing block in the decoder
+                    (3) Use pre block features in decoder
+                    (4) add possiblity for multiple lidar blocks
     '''
-    # TODO: __init__:   rescale decoder out to original input size
-    
+
     def __init__(self, growth_rate=32, block_config=(6, 12, 24, 16), num_init_features=64,          # orig
                 num_lidar_in_channels=1, concat_before_block_num=2, num_layers_before_blocks=4,     # new                                                     # new
                 bn_size=4, drop_rate=0, num_classes=3, memory_efficient=True):                      # orig     
@@ -76,11 +82,11 @@ class Dense_U_Net_lidar(nn.Module):
                 self.lidar_features = nn.Sequential(OrderedDict([
                     ('norm0', nn.BatchNorm2d(num_lidar_in_channels)),
                     ('relu0', nn.ReLU(inplace=True)),
-                    ('conv0', nn.Conv2d(num_lidar_in_channels, num_init_features/2, kernel_size=7, 
+                    ('conv0', nn.Conv2d(num_lidar_in_channels, num_init_features//2, kernel_size=7, 
                                 stride=1, padding=3, bias=False)),
-                    ('norm1', nn.BatchNorm2d(num_init_features/2)),
+                    ('norm1', nn.BatchNorm2d(num_init_features//2)),
                     ('relu1', nn.ReLU(inplace=True)),
-                    ('conv1', nn.Conv2d(num_init_features/2, num_features, kernel_size=3, 
+                    ('conv1', nn.Conv2d(num_init_features//2, num_features, kernel_size=3, 
                                 stride=1, padding=1, bias=False))
                 ]))
                 block = _DenseBlock(
@@ -114,7 +120,7 @@ class Dense_U_Net_lidar(nn.Module):
                 self.features.add_module('transition%d' % (i + 1), trans)
                 num_features = num_features // 2
 
-        # decoder; ugly: should have own class for whole sequence 
+        # U net like decoder blocks up to WxH of first block; ugly: should have own class for whole sequence 
         self.decoder = nn.Sequential()
         num_in_features = feature_size_stack.pop()
         for i in range(len(block_config)-1):                            
@@ -161,7 +167,7 @@ class Dense_U_Net_lidar(nn.Module):
     def forward(self, rgb_data, lidar_data):
         
         features_from_enc_stack = deque()
-        WxH_shape_stack = deque()
+        HxW_shape_stack = deque()
         
         # encoding
         lidar_features = self.lidar_features(lidar_data)
@@ -179,7 +185,7 @@ class Dense_U_Net_lidar(nn.Module):
             # save features for decoder in stack
             if isinstance(enc_module, _DenseBlock):
                 features_from_enc_stack.append(features)                            
-                WxH_shape_stack.append(features.size()[:2])                                 
+                HxW_shape_stack.append(features.size())                                 
         
         # decoding; ugly quick and dirty implementation 
         for i, dec_module in enumerate(self.decoder):
@@ -188,7 +194,7 @@ class Dense_U_Net_lidar(nn.Module):
                     features = torch.cat((features, features_from_enc_stack.pop()), 1)  
                 features = dec_module(features)
             else:                                                                                   # TransposedConv
-                features = dec_module(features, output_size=WxH_shape_stack.pop())       
+                features = dec_module(features, output_size=HxW_shape_stack.pop())       
 
         features = self.dec_out_to_heat_maps(features)
 
