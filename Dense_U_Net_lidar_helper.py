@@ -113,6 +113,7 @@ def load_dict(filename):
 
 def pool_range_tensor(range_tensor):
     '''
+    unused
     downsizing WxH while preserving 99.9% of the values
     i.e. making feature maps more dense
         WxH         lidar:zeros   lidar points absolute     iteration
@@ -214,9 +215,9 @@ def waymo_to_pytorch_offline(idx_dataset_batch):
                                             range_image_top_pose)
                     lidar_array = extract_lidar_array_from_point_cloud(points, cp_points)       # lidar corresponds to image due to the mask in this function
                     range_tensor = lidar_array_to_image_like_tensor(lidar_array)
-                    pooled_range_tensor = pool_range_tensor(range_tensor)                       # while preserving most data points WxH --> W/4xH/4
+                    # range_tensor = pool_range_tensor(range_tensor)                       # while preserving most data points WxH --> W/4xH/4
                     lidar_filename = 'lidar_' + img_filename
-                    torch.save(pooled_range_tensor, save_path_lidar + lidar_filename)
+                    torch.save(range_tensor, save_path_lidar + lidar_filename)
 
                     ### retrieve, convert and save labels 
                     label_dict = {}                                                             # dict of dicts
