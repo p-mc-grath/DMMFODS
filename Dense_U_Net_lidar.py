@@ -30,12 +30,25 @@ class Dense_U_Net_lidar(nn.Module):
     for forward pass if concat_before_block_num=2: (W_lidar, H_lidar) == (W_rgb/4, H_rgb/4) 
     
     potential mods: (1) use max pool in transition layers instead of avg pool
-                        with return_indices=True 
-                        use maxunpool2d with corresponding indices in upsampling
+    in order            with return_indices=True 
+    of priority         use maxunpool2d with corresponding indices in upsampling
                         !weights still same because no weight op!
-                    (2) Processing block in the decoder
-                    (3) Use pre block features in decoder
-                    (4) add possiblity for multiple lidar blocks
+                    (2) 1x1 convs on block output before concat for upsampling
+                        --> reduce decoder layers
+                    (3) add possiblity for multiple lidar blocks
+                    (4) Processing block in the decoder
+                    (5) Use pre block features in decoder
+                    
+    Orig DenseNet HxW:          In 224 C 112 P 56 B1T1 28 B2T2 14 B3T3 7 B4 7
+    Waymo Images: (1280, 1920)  Divis   /8          /4
+                                In      (160,240)   (320,480)
+                                C       (80, 120)   (160,240)
+                                P       (40, 60)    (80,120)
+                                B1T1    (20, 30)    (40,60)
+                                B2T2    (10, 15)    (20,30)
+                                B3T3    (5, 7.5)    (10,15)
+                                B4      (5, 7.5)    (10,15)
+
     '''
 
     def __init__(self, growth_rate=32, block_config=(6, 12, 24, 16), num_init_features=64,          # orig
@@ -54,6 +67,8 @@ class Dense_U_Net_lidar(nn.Module):
         self.loss = None
         self.optimizer = None
 
+        self.downsample_rgb = nn.MaxPool2d(kernel_size=10, stride=10, padding=0)                    # TODO better average??
+
         # First convolution rgb
         self.features = nn.Sequential(OrderedDict([
             ('conv0', nn.Conv2d(3, num_init_features, kernel_size=7, stride=2,
@@ -66,6 +81,7 @@ class Dense_U_Net_lidar(nn.Module):
         # amount and size of denseblocks dictate num_features after init
         num_features = num_init_features
         feature_size_stack = deque()
+        feature_size_stack.append(num_init_features + 2*growth_rate)
         for i, num_layers in enumerate(block_config):
 
             # concat layer; 1x1 conv
@@ -80,14 +96,15 @@ class Dense_U_Net_lidar(nn.Module):
             # first convolution and denseblock lidar
             if i == concat_before_block_num-2:
                 self.lidar_features = nn.Sequential(OrderedDict([
+                    ('downsizing_input', nn.MaxPool2d(kernel_size=10, stride=10, padding=0)),
                     ('norm0', nn.BatchNorm2d(num_lidar_in_channels)),
                     ('relu0', nn.ReLU(inplace=True)),
-                    ('conv0', nn.Conv2d(num_lidar_in_channels, num_init_features//2, kernel_size=7, 
-                                stride=1, padding=3, bias=False)),
-                    ('norm1', nn.BatchNorm2d(num_init_features//2)),
+                    ('conv0', nn.Conv2d(num_lidar_in_channels, num_init_features, kernel_size=7, 
+                                stride=2, padding=3, bias=False)),
+                    ('norm1', nn.BatchNorm2d(num_init_features)),
                     ('relu1', nn.ReLU(inplace=True)),
-                    ('conv1', nn.Conv2d(num_init_features//2, num_features, kernel_size=3, 
-                                stride=1, padding=1, bias=False))
+                    ('conv1', nn.Conv2d(num_init_features, num_features, kernel_size=3, 
+                                stride=2, padding=1, bias=False))
                 ]))
                 block = _DenseBlock(
                     num_layers=num_layers,
@@ -116,38 +133,47 @@ class Dense_U_Net_lidar(nn.Module):
             feature_size_stack.append(num_features)
             if i != len(block_config) - 1:
                 trans = _Transition(num_input_features=num_features,
-                                    num_output_features=num_features // 2)
+                                num_output_features=num_features // 2)
                 self.features.add_module('transition%d' % (i + 1), trans)
                 num_features = num_features // 2
 
         # U net like decoder blocks up to WxH of first block; ugly: should have own class for whole sequence 
         self.decoder = nn.Sequential()
         num_in_features = feature_size_stack.pop()
-        for i in range(len(block_config)-1):                            
+        for i in range(len(block_config)):                            
             num_features = feature_size_stack.pop()
             transp_conv_seq = nn.Sequential(OrderedDict([                                           # denselayer like struct; reduce channels with 1x1 convs
                             ('norm1', nn.BatchNorm2d(num_in_features)),
                             ('relu1', nn.ReLU(inplace=True)),
-                            ('conv_reduce', nn.Conv2d(num_in_features, num_features, kernel_size=1, stride=1,
-                                padding=0, bias=False)),
+                            ('conv_reduce', nn.Conv2d(num_in_features, num_features, 
+                                kernel_size=1, stride=1, padding=0, bias=False)),
                             ('norm2', nn.BatchNorm2d(num_features)),
                             ('relu2', nn.ReLU(inplace=True))
             ]))
             self.decoder.add_module('Transposed_Convolution_Sequence_%d' %(i+1), transp_conv_seq)
-            self.decoder.add_module('Transposed_Convolution_%d' %(i+1), nn.ConvTranspose2d(num_features, num_features, kernel_size=3))
+            self.decoder.add_module('Transposed_Convolution_%d' %(i+1), nn.ConvTranspose2d(num_features, 
+                num_features, kernel_size=3, stride=2, padding=1))
             num_in_features = num_features*2
         
-        # stepwise reducing channels to 3d map
-        # TODO rescale to original input size
-        self.dec_out_to_heat_maps = nn.Sequential(OrderedDict([                   
+        # Upscaling to original size: input (48, 32)*2*2*1*2*5 = (1920,1280)
+        self.dec_out_to_heat_maps = nn.Sequential(OrderedDict([
+                            ('norm0', nn.BatchNorm2d(num_features)),
+                            ('relu0', nn.ReLU(inplace=True)),
+                            ('t_conv0', nn.ConvTranspose2d(num_features, num_features, 
+                                kernel_size=7, stride=2, padding=3, bias=False)),  
                             ('norm1', nn.BatchNorm2d(num_features)),
                             ('relu1', nn.ReLU(inplace=True)),
-                            ('conv1', nn.Conv2d(num_features, 64, kernel_size=3, stride=1,
-                                padding=1, bias=False)),
-                            ('norm2', nn.BatchNorm2d(64)),
+                            ('t_conv1', nn.ConvTranspose2d(num_features, num_features, 
+                                kernel_size=5, stride=2, padding=2, bias=False)), 
+                            ('norm2', nn.BatchNorm2d(num_features)),
                             ('relu2', nn.ReLU(inplace=True)),
-                            ('conv2', nn.Conv2d(64, num_classes, kernel_size=3, stride=1,
-                                padding=1, bias=False)),
+                            ('reduce_channels', nn.Conv2d(num_features, num_classes, 
+                                kernel_size=1, stride=1, padding=0, bias=False)),
+                            ('norm3', nn.BatchNorm2d(num_classes)),
+                            ('relu3', nn.ReLU(inplace=True)),
+                            ('t_conv2', nn.ConvTranspose2d(num_classes, num_classes, 
+                                kernel_size=7, stride=2, padding=3, bias=False)),    
+                            ('Upsampling_Bilinear', nn.Upsample(scale_factor=5)),
                             ('out_sigmoid', nn.Sigmoid())
             ]))
 
@@ -171,7 +197,7 @@ class Dense_U_Net_lidar(nn.Module):
         
         # encoding
         lidar_features = self.lidar_features(lidar_data)
-        features = rgb_data
+        features = self.downsample_rgb(rgb_data)
         for i, enc_module in enumerate(self.features): 
             # enc
             features = enc_module(features)  
