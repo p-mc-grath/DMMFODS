@@ -143,34 +143,30 @@ class Dense_U_Net_lidar(nn.Module):
         for i in range(len(block_config)):                            
             num_features = feature_size_stack.pop()
             transp_conv_seq = nn.Sequential(OrderedDict([                                           # denselayer like struct; reduce channels with 1x1 convs
-                            ('norm1', nn.BatchNorm2d(num_in_features)),
-                            ('relu1', nn.ReLU(inplace=True)),
+                            ('norm0', nn.BatchNorm2d(num_in_features)),
+                            ('relu0', nn.ReLU(inplace=True)),
                             ('conv_reduce', nn.Conv2d(num_in_features, num_features, 
                                 kernel_size=1, stride=1, padding=0, bias=False)),
-                            ('norm2', nn.BatchNorm2d(num_features)),
-                            ('relu2', nn.ReLU(inplace=True))
+                            ('norm1', nn.BatchNorm2d(num_features)),
+                            ('relu1', nn.ReLU(inplace=True))
             ]))
             self.decoder.add_module('Transposed_Convolution_Sequence_%d' %(i+1), transp_conv_seq)
             self.decoder.add_module('Transposed_Convolution_%d' %(i+1), nn.ConvTranspose2d(num_features, 
                 num_features, kernel_size=3, stride=2, padding=1))
             num_in_features = num_features*2
         
-        # Upscaling to original size: input (48, 32)*2*2*1*2*5 = (1920,1280)
-        self.dec_out_to_heat_maps = nn.Sequential(OrderedDict([
+        # Upscaling to original size: input (96, 64)*2*1*2*5 = (1920,1280)
+        self.dec_out_to_heat_maps = nn.Sequential(OrderedDict([ 
                             ('norm0', nn.BatchNorm2d(num_features)),
                             ('relu0', nn.ReLU(inplace=True)),
                             ('t_conv0', nn.ConvTranspose2d(num_features, num_features, 
-                                kernel_size=7, stride=2, padding=3, bias=False)),  
+                                kernel_size=5, stride=2, padding=2, bias=False)), 
                             ('norm1', nn.BatchNorm2d(num_features)),
                             ('relu1', nn.ReLU(inplace=True)),
-                            ('t_conv1', nn.ConvTranspose2d(num_features, num_features, 
-                                kernel_size=5, stride=2, padding=2, bias=False)), 
-                            ('norm2', nn.BatchNorm2d(num_features)),
-                            ('relu2', nn.ReLU(inplace=True)),
                             ('reduce_channels', nn.Conv2d(num_features, num_classes, 
                                 kernel_size=1, stride=1, padding=0, bias=False)),
-                            ('norm3', nn.BatchNorm2d(num_classes)),
-                            ('relu3', nn.ReLU(inplace=True)),
+                            ('norm2', nn.BatchNorm2d(num_classes)),
+                            ('relu2', nn.ReLU(inplace=True)),
                             ('t_conv2', nn.ConvTranspose2d(num_classes, num_classes, 
                                 kernel_size=7, stride=2, padding=3, bias=False)),    
                             ('Upsampling_Bilinear', nn.Upsample(scale_factor=5)),
