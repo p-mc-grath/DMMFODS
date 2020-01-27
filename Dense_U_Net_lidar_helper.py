@@ -153,6 +153,36 @@ def extract_lidar_array_from_point_cloud(points, cp_points):
 
     return lidar_array
 
+def distribute_data_into_train_val_test(data_root, split):
+    '''
+    move image, lidar and label data from their respective subdirectory
+    to train, val, test subdirectories preserving their respective subdirectories
+    
+    sampling is randomized; assuming same order of files in all subdirectories
+
+    Arguments:
+        data_root: dir path above subdirectories of diff datatypes
+        split: list: [train_percentage, val_percentage, test_percentage]
+    '''
+
+    # same indices for all subdirs
+    indices = np.arange(num_samples)
+    np.random.shuffle(indices)
+    
+    split = np.array(split)*num_samples
+    split = np.array([0, split[0], split[0]+split[1], num_samples])
+        
+    for data_type in ['labels','images','lidar']:
+        filenames = listdir(os.path.join(data_root, data_type))
+        num_samples = len(filenames)
+
+        for i, sub_dir in enumerate(['train', 'val', 'test'])):
+            save_path = os.path.join(data_root, sub_dir, data_type)
+            Path(save_path).mkdir(exist_ok=True)
+
+            for filename in filenames[indices[split[i:i+1]]]:
+                os.rename(os.path.join(data_root, filename), os.path.join(save_path, filename))
+
 def waymo_to_pytorch_offline(idx_dataset_batch):
     '''
     Converts tfrecords from waymo open data set to
@@ -167,11 +197,11 @@ def waymo_to_pytorch_offline(idx_dataset_batch):
         'height':   height of corresponding bbounding box   !!labeling not as in original!!
     '''    
 
-    data_root = '/content/mnt/My Drive/Colab Notebooks/DeepCV_Packages/'
-    save_path = data_root + 'data' #!! no / at end!!
-    save_path_labels = save_path + '/labels/'
-    save_path_images = save_path + '/images/'
-    save_path_lidar = save_path + '/lidar/'
+    data_root = os.path.join('content', 'mnt', 'My Drive', 'Colab Notebooks', 'DeepCV_Packages')
+    save_path = os.path.join(data_root, 'data')                                                
+    save_path_labels = os.path.join(save_path, 'labels')
+    save_path_images = os.path.join(save_path, 'images')
+    save_path_lidar = os.path.join(save_path, 'lidar')
 
     # create save dirs if not exist
     Path(save_path_labels).mkdir(exist_ok=True)
@@ -184,7 +214,7 @@ def waymo_to_pytorch_offline(idx_dataset_batch):
 
         # for all tfrecord files
         if entry.endswith('.tfrecord'):                                                     
-            dataset = tf.data.TFRecordDataset(data_root + entry, compression_type='')           # read tfrecord
+            dataset = tf.data.TFRecordDataset(os.path.join(data_root, entry), compression_type='')           # read tfrecord
 
             # for all datasets stored in tfrecord
             for idx_data, data in enumerate(dataset):
@@ -202,7 +232,7 @@ def waymo_to_pytorch_offline(idx_dataset_batch):
                     np_img = np.moveaxis(tf.image.decode_jpeg(image.image).numpy(), -1, 0)      # frame -> np array with tensor like dims: channels,y,x
                     img_tensor = torch.Tensor(np_img).unsqueeze(0)                              # np array -> torch Tensor: add batch size as first dim      
                     img_filename = 'img_%d_%d_%d_%d' %(idx_dataset_batch, idx_entry, idx_data, idx_img) 
-                    torch.save(img_tensor, save_path_images + img_filename)                     
+                    torch.save(img_tensor, os.path.join(save_path_images, img_filename))                     
                     
                     ### retrieve, convert and save lidar data
                     (range_images, camera_projections,
@@ -215,9 +245,9 @@ def waymo_to_pytorch_offline(idx_dataset_batch):
                                             range_image_top_pose)
                     lidar_array = extract_lidar_array_from_point_cloud(points, cp_points)       # lidar corresponds to image due to the mask in this function
                     range_tensor = lidar_array_to_image_like_tensor(lidar_array)
-                    # range_tensor = pool_range_tensor(range_tensor)                       # while preserving most data points WxH --> W/4xH/4
+                    # range_tensor = pool_range_tensor(range_tensor)                            # while preserving most data points WxH --> W/4xH/4
                     lidar_filename = 'lidar_' + img_filename
-                    torch.save(range_tensor, save_path_lidar + lidar_filename)
+                    torch.save(range_tensor, os.path.join(save_path_lidar, lidar_filename))
 
                     ### retrieve, convert and save labels 
                     label_dict = {}                                                             # dict of dicts
@@ -236,4 +266,4 @@ def waymo_to_pytorch_offline(idx_dataset_batch):
                                 'width':int(label.box.length)
                             }
 
-                    save_dict(label_dict, save_path_labels + labels_filename)
+                    save_dict(label_dict, os.path.join(save_path_labels, labels_filename))
