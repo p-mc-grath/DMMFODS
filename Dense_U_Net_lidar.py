@@ -1,16 +1,17 @@
-import numpy as np
-from torchvision.models.densenet import model_urls, _DenseLayer, _DenseBlock, _Transition
-import torch.nn.functional as F
+import re
+import os
 import torch
 import torch.nn as nn
-from torchvision.models.utils import load_state_dict_from_url
-import re
+import torch.nn.functional as F
 import torch.distributed as dist
-import os
+import numpy as np
+from torchvision.models.densenet import model_urls, _DenseLayer, _DenseBlock, _Transition
+from torchvision.models.utils import load_state_dict_from_url
 from collections import OrderedDict
 from collections import deque 
+from ..utils.Dense_U_Net_lidar_helper import get_config # TODO check if relative import works
 
-# Structure basically same as 
+# Structure of encoder basically same as 
 # https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py
 
 class Dense_U_Net_lidar(nn.Module):
@@ -50,42 +51,48 @@ class Dense_U_Net_lidar(nn.Module):
                                 B4      (6, 4)      (5, 7.5)    (10,15)
 
     '''
-
-    def __init__(self, growth_rate=32, block_config=(6, 12, 24, 16), num_init_features=64,          # orig
-                num_lidar_in_channels=1, concat_before_block_num=2, num_layers_before_blocks=4,     # new                                                     # new
-                bn_size=4, drop_rate=0, num_classes=3, memory_efficient=True):                      # orig     
-
-        # block config should also only contain even numbers
-
+    def __init__(self, config):
+    
         super().__init__()
 
-        self.concat_before_block_num = concat_before_block_num
-        self.block_config = block_config
-        self.num_layers_before_blocks = num_layers_before_blocks
+        # original densenet attributes
+        self.growth_rate = config.model.growth_rate 
+        self.block_config = config.model.block_config
+        self.num_init_features = config.model.num_init_features          
+        self.bn_size = config.model.bn_size
+        self.drop_rate = config.model.drop_rate
+        self.memory_efficient = config.model.memory_efficient  
+        self.num_classes = config.model.num_classes        
+
+        # necessary for forward pass
+        self.concat_before_block_num = config.model.concat_before_block_num
+        self.num_layers_before_blocks = config.model.num_layers_before_blocks
+        self.num_lidar_in_channels = config.model.num_lidar_in_channels
+
+        # not sure if optimizer checkpoint saves this
         self.best_checkpoint_path = '/content/notebooks/DeepCV_Packages/best_checkpoint.pth.tar'
-        self.epoch = None
-        self.loss = None
-        self.optimizer = None
+        self.epoch = config.optimizer.epoch
+        self.loss = config.optimizer.loss
 
         self.downsample_rgb = nn.MaxPool2d(kernel_size=10, stride=10, padding=0)                    # TODO better average??
 
         # First convolution rgb
         self.features = nn.Sequential(OrderedDict([
-            ('conv0', nn.Conv2d(3, num_init_features, kernel_size=7, stride=2,
+            ('conv0', nn.Conv2d(3, self.num_init_features, kernel_size=7, stride=2,
                                 padding=3, bias=False)),
-            ('norm0', nn.BatchNorm2d(num_init_features)),
+            ('norm0', nn.BatchNorm2d(self.num_init_features)),
             ('relu0', nn.ReLU(inplace=True)),
             ('pool0', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
         ]))
 
         # amount and size of denseblocks dictate num_features after init
-        num_features = num_init_features
+        num_features = self.num_init_features
         feature_size_stack = deque()
-        feature_size_stack.append(num_init_features + 2*growth_rate)
-        for i, num_layers in enumerate(block_config):
+        feature_size_stack.append(self.num_init_features + 2*self.growth_rate)
+        for i, num_layers in enumerate(self.block_config):
 
             # concat layer; 1x1 conv
-            if i == concat_before_block_num-1:
+            if i == self.concat_before_block_num-1:
                 self.concat_module = nn.Sequential(OrderedDict([
                 ('norm', nn.BatchNorm2d(num_features*2)),
                 ('relu', nn.ReLU(inplace=True)),
@@ -94,53 +101,54 @@ class Dense_U_Net_lidar(nn.Module):
             ]))
 
             # first convolution and denseblock lidar
-            if i == concat_before_block_num-2:
+            if i == self.concat_before_block_num-2:
                 self.lidar_features = nn.Sequential(OrderedDict([
                     ('downsizing_input', nn.MaxPool2d(kernel_size=10, stride=10, padding=0)),
-                    ('norm0', nn.BatchNorm2d(num_lidar_in_channels)),
+                    ('norm0', nn.BatchNorm2d(self.num_lidar_in_channels)),
                     ('relu0', nn.ReLU(inplace=True)),
-                    ('conv0', nn.Conv2d(num_lidar_in_channels, num_init_features, kernel_size=7, 
-                                stride=2, padding=3, bias=False)),
-                    ('norm1', nn.BatchNorm2d(num_init_features)),
+                    ('conv0', nn.Conv2d(self.num_lidar_in_channels, self.num_init_features, 
+                                kernel_size=7, stride=2, padding=3, bias=False)),
+                    ('norm1', nn.BatchNorm2d(self.num_init_features)),
                     ('relu1', nn.ReLU(inplace=True)),
-                    ('conv1', nn.Conv2d(num_init_features, num_features, kernel_size=3, 
+                    ('conv1', nn.Conv2d(self.num_init_features, num_features, kernel_size=3, 
                                 stride=2, padding=1, bias=False))
                 ]))
                 block = _DenseBlock(
                     num_layers=num_layers,
                     num_input_features=num_features,
-                    bn_size=bn_size,
-                    growth_rate=growth_rate,
-                    drop_rate=drop_rate,
-                    memory_efficient=memory_efficient
+                    bn_size=self.bn_size,
+                    growth_rate=self.growth_rate,
+                    drop_rate=self.drop_rate,
+                    memory_efficient=self.memory_efficient
                 )
                 self.lidar_features.add_module('lidar_denseblock%d' % (i + 1), block)
-                trans = _Transition(num_input_features=num_features + num_layers * growth_rate,
-                                    num_output_features=(num_features + num_layers * growth_rate) // 2)
+                trans = _Transition(num_input_features=num_features + num_layers * self.growth_rate,
+                                    num_output_features=(num_features + num_layers * self.growth_rate) // 2)
                 self.lidar_features.add_module('lidar_transition%d' % (i + 1), trans)
 
             # denseblocks rgb
             block = _DenseBlock(
                 num_layers=num_layers,
                 num_input_features=num_features,
-                bn_size=bn_size,
-                growth_rate=growth_rate,
-                drop_rate=drop_rate,
-                memory_efficient=memory_efficient
+                bn_size=self.bn_size,
+                growth_rate=self.growth_rate,
+                drop_rate=self.drop_rate,
+                memory_efficient=self.memory_efficient
             )
             self.features.add_module('denseblock%d' % (i + 1), block)
-            num_features = num_features + num_layers * growth_rate
+            num_features = num_features + num_layers * self.growth_rate
             feature_size_stack.append(num_features)
-            if i != len(block_config) - 1:
+            if i != len(self.block_config) - 1:
                 trans = _Transition(num_input_features=num_features,
                                 num_output_features=num_features // 2)
                 self.features.add_module('transition%d' % (i + 1), trans)
                 num_features = num_features // 2
 
-        # U net like decoder blocks up to WxH of first block; ugly: should have own class for whole sequence 
+        # U net like decoder blocks up to WxH of first block; 
+        # ugly: should have own class for whole sequence 
         self.decoder = nn.Sequential()
         num_in_features = feature_size_stack.pop()
-        for i in range(len(block_config)):                            
+        for i in range(len(self.block_config)):                            
             num_features = feature_size_stack.pop()
             transp_conv_seq = nn.Sequential(OrderedDict([                                           # denselayer like struct; reduce channels with 1x1 convs
                             ('norm0', nn.BatchNorm2d(num_in_features)),
@@ -163,11 +171,11 @@ class Dense_U_Net_lidar(nn.Module):
                                 kernel_size=5, stride=2, padding=2, bias=False)), 
                             ('norm1', nn.BatchNorm2d(num_features)),
                             ('relu1', nn.ReLU(inplace=True)),
-                            ('reduce_channels', nn.Conv2d(num_features, num_classes, 
+                            ('reduce_channels', nn.Conv2d(num_features, self.num_classes, 
                                 kernel_size=1, stride=1, padding=0, bias=False)),
-                            ('norm2', nn.BatchNorm2d(num_classes)),
+                            ('norm2', nn.BatchNorm2d(self.num_classes)),
                             ('relu2', nn.ReLU(inplace=True)),
-                            ('t_conv2', nn.ConvTranspose2d(num_classes, num_classes, 
+                            ('t_conv2', nn.ConvTranspose2d(self.num_classes, self.num_classes, 
                                 kernel_size=7, stride=2, padding=3, bias=False)),    
                             ('Upsampling_Bilinear', nn.Upsample(scale_factor=5)),
                             ('out_sigmoid', nn.Sigmoid())
@@ -253,11 +261,11 @@ def _load_state_dict(model, model_url, state_dict_checkpoint, progress):
     state_dict_model.update(state_dict_checkpoint) 
     model.load_state_dict(state_dict_model, strict=False)
 
-def _load_checkpoint(model, model_url, gdrive_checkpoint, progress):
+def _load_checkpoint(model, config, model_url, gdrive_checkpoint, progress):
 
     # load checkpoint from gdrive
     if gdrive_checkpoint:
-        checkpoint = torch.load(model.best_checkpoint_path)
+        checkpoint = torch.load(config.dir.pretrained_weights.best_checkpoint)
         _load_state_dict(model, model_url, checkpoint['model_state_dict'], progress)
         if model.optimizer is not None:
             model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -271,16 +279,23 @@ def _load_checkpoint(model, model_url, gdrive_checkpoint, progress):
     model.train()
 
 def _dense_u_net_lidar(arch, growth_rate, block_config, num_init_features, pretrained, progress,
-              gdrive_checkpoint, **kwargs):
-    model = Dense_U_Net_lidar(growth_rate, block_config, num_init_features, **kwargs)
+              gdrive_checkpoint, config):
+    if config is None:
+        # TODO rmv hard coded path
+        config = get_config(os.path.join('content', 'mnt', 'My Drive', 'Colab Notebooks', 'DeepCV_Packages'))
+    config.model.growth_rate = growth_rate
+    config.model.block_config = block_config
+    config.model.num_init_features = num_init_features
+
+    model = Dense_U_Net_lidar(config)
     
     if pretrained:
-        _load_checkpoint(model, model_urls[arch], gdrive_checkpoint, progress)
+        _load_checkpoint(model, config, model_urls[arch], gdrive_checkpoint, progress)
         
     return model
 
 
-def densenet121_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True, **kwargs):
+def densenet121_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True, config=None):
     r"""Densenet-121 model from
     `"Densely Connected Convolutional Networks" <https://arxiv.org/pdf/1608.06993.pdf>`_
     Args:
@@ -290,10 +305,10 @@ def densenet121_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True
           but slower. Default: *False*. See `"paper" <https://arxiv.org/pdf/1707.06990.pdf>`_
     """
     return _dense_u_net_lidar('densenet121', 32, (6, 12, 24, 16), 64, pretrained, progress,
-                     gdrive_checkpoint, **kwargs)
+                     gdrive_checkpoint, config)
 
 
-def densenet161__u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True, **kwargs):
+def densenet161__u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True, config=None):
     r"""Densenet-161 model from
     `"Densely Connected Convolutional Networks" <https://arxiv.org/pdf/1608.06993.pdf>`_
     Args:
@@ -303,10 +318,10 @@ def densenet161__u_lidar(pretrained=False, gdrive_checkpoint=False, progress=Tru
           but slower. Default: *False*. See `"paper" <https://arxiv.org/pdf/1707.06990.pdf>`_
     """
     return _dense_u_net_lidar('densenet161', 48, (6, 12, 36, 24), 96, pretrained, progress,
-                     gdrive_checkpoint, **kwargs)
+                     gdrive_checkpoint, config)
 
 
-def densenet169_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True, **kwargs):
+def densenet169_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True, config=None):
     r"""Densenet-169 model from
     `"Densely Connected Convolutional Networks" <https://arxiv.org/pdf/1608.06993.pdf>`_
     Args:
@@ -316,10 +331,10 @@ def densenet169_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True
           but slower. Default: *False*. See `"paper" <https://arxiv.org/pdf/1707.06990.pdf>`_
     """
     return _dense_u_net_lidar('densenet169', 32, (6, 12, 32, 32), 64, pretrained, progress,
-                     gdrive_checkpoint, **kwargs)
+                     gdrive_checkpoint, config)
 
 
-def densenet201_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True, **kwargs):
+def densenet201_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True, config=None):
     r"""Densenet-201 model from
     `"Densely Connected Convolutional Networks" <https://arxiv.org/pdf/1608.06993.pdf>`_
     Args:
@@ -329,4 +344,4 @@ def densenet201_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True
           but slower. Default: *False*. See `"paper" <https://arxiv.org/pdf/1707.06990.pdf>`_
     """
     return _dense_u_net_lidar('densenet201', 32, (6, 12, 48, 32), 64, pretrained, progress,
-                     gdrive_checkpoint, **kwargs)
+                     gdrive_checkpoint, config)

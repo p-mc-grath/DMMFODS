@@ -2,9 +2,11 @@ import os
 import numpy as np
 import torch
 import tensorflow as tf
+import json
 
+from easydict import EasyDict as edict
 from six.moves import cPickle as pickle
-from os.path import join
+from os.path import join, isfile
 from google.colab import drive
 from pathlib import Path
 
@@ -13,11 +15,97 @@ from waymo_open_dataset.utils import transform_utils
 from waymo_open_dataset.utils import  frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
 
+
+def create_config():
+
+    config = {
+        'dir': {
+            'root': 'content/mnt/My Drive/Colab Notebooks/DeepCV_Packages'
+        }
+    }
+    # create subdirs according to pytorch project template: https://github.com/moemen95/Pytorch-Project-Template/tree/4d2f7bea9819fe2e5e25153c5cc87c8b5f35f4b8
+    for subdir in ['agents', 'graphs', 'data', 'utils', 'datasets', 'pretrained_weights', 'configs']:
+        config['dir'][subdir] = join(root, subdir)
+    config['dir']['graphs']['models'] = join(config['dir']['graphs'], 'models')
+    config['dir']['pretrained_weights']['best_checkpoint'] = join(config['dir']['pretrained_weights'], 'best_checkpoint.py.tar')
+
+    # directories according to distribute_data_into_train_val_test function in this script
+    for mode in ['train', 'val', 'test']:
+        config['dir']['data'][mode] = {}
+        for datatype in ['images', 'lidar', 'labels']:
+            config['dir']['data'][mode][datatype] = join(config['dir']['data'], mode, datatype)
+
+    # all script names
+    config['scripts'] = {
+        'model': 'Dense_U_Net_lidar.py',
+        'utils': 'Dense_U_Net_lidar_helper.py',
+        'agent': 'Dense_U_Net_lidar_Agent.py',
+        'dataset': 'WaymoData.py',
+        'setup': 'Setup.ipynb'
+    }
+    
+    # model params
+    config['model'] = {
+        'growth_rate': 32,
+        'block_config': (6, 12, 24, 16),
+        'num_init_features': 64,
+        'num_lidar_in_channels': 1,
+        'concat_before_block_num': 2,
+        'num_layers_before_blocks': 4,
+        'bn_size': 4,
+        'drop_rate': 0,
+        'num_classes': 3,
+        'memory_efficient': True
+    }
+
+    # loader params
+    config['loader'] = {
+        'mode': 'train',
+        'workers': 4,
+        'batch_size': 4
+    }
+
+    # optimizer params
+    config['optimizer'] = {
+        'type': 'Adam',
+        'learning_rate': 0.1,
+        'weight_decay': 0.0001,
+        'momentum': 0.9
+    }
+
+    # waymo dataset info
+    config['dataset'] = {
+        'label': {
+            '1': 'TYPE_VEHICLE',
+            '2': 'TYPE_PEDESTRIAN',
+            '4': 'TYPE_CYCLIST'
+        },
+        'images': {
+            'size': (3, 1920, 1280)
+        }
+    }
+    return config
+
+def get_config(root):
+    '''
+    Using json because human readable
+    '''
+    json_file = join(root, 'config', 'Dense_U_Net_lidar_config.json')
+    
+    if isfile(json_file):
+        with open(json_file, 'r') as config_file:
+            config = json.load(config_file)                                                           # values -> attrs
+    else:
+        config = create_config()
+
+    return edict(config)
 ############################################################################
 # Ground Truth functions
 ############################################################################
 def _create_ground_truth_bb_pedestrian(ground_truth_box):
-    
+    '''
+    Very rough, generic approximation of human silhouette in bounding box
+    '''
     unlikely = 0.3
     uncertain = 0.5
     half_certain = 0.75
@@ -58,11 +146,12 @@ def _create_ground_truth_bb(object_class, width, height):
 
 def create_ground_truth_maps(ground_truth, width_img, height_img):
     '''
-    ground_truth: expected to be iterable containing dicts
+    Arguments:
+        ground_truth: expected to be iterable containing dicts
                 dicts with following fields: type, x, y, width, height 
                 x, y coords of upper left corner
-    width_img:  of original!! image
-    height_img: of original!! image
+        width_img:  of original!! image
+        height_img: of original!! image
     '''
     maps = np.zeros((1, 3, height_img, width_img))
     
@@ -128,7 +217,9 @@ def pool_range_tensor(range_tensor):
     return range_tensor
 
 def lidar_array_to_image_like_tensor(lidar_array, shape=(1,1,1280,1920)):
-    
+    '''
+    read out lidar array into image with one channel = distance values
+    '''
     range_tensor = torch.zeros(shape)
     for [x, y, d] in lidar_array:
         range_tensor[1,1,int(y),int(x)] = d.item()                                              # tensor does not accept np.float32
@@ -138,6 +229,10 @@ def lidar_array_to_image_like_tensor(lidar_array, shape=(1,1,1280,1920)):
 def extract_lidar_array_from_point_cloud(points, cp_points): 
     '''
     selected collection of lines from Waymo Open Dataset Tutorial.ipynb
+    extracting lidar data from point cloud
+    return:
+        lidar array consisting of x, y, distance_value corresponding to
+        the respective image
     '''
     
     points_all = np.concatenate(points, axis=0)                                                 # 3d points in vehicle frame.
@@ -155,22 +250,24 @@ def extract_lidar_array_from_point_cloud(points, cp_points):
 
 def distribute_data_into_train_val_test(data_root, split):
     '''
+    reason: colab might disconnect during training; better have hard separation of data subsets!
+
     move image, lidar and label data from their respective subdirectory
     to train, val, test subdirectories preserving their respective subdirectories
     
     sampling is randomized; assuming same order of files in all subdirectories
 
     Arguments:
-        data_root: dir path above subdirectories of diff datatypes
+        data_root: dir path above subdirectories ['labels','images','lidar']
         split: list: [train_percentage, val_percentage, test_percentage]
     '''
-
     # same indices for all subdirs
     indices = np.arange(num_samples)
     np.random.shuffle(indices)
     
+    # make splits to split_indices for indices list
     split = np.array(split)*num_samples
-    split = np.array([0, split[0], split[0]+split[1], num_samples])
+    split_indices = np.array([0, split[0], split[0]+split[1], num_samples])
         
     for data_type in ['labels','images','lidar']:
         filenames = listdir(os.path.join(data_root, data_type))
@@ -180,10 +277,10 @@ def distribute_data_into_train_val_test(data_root, split):
             save_path = os.path.join(data_root, sub_dir, data_type)
             Path(save_path).mkdir(exist_ok=True)
 
-            for filename in filenames[indices[split[i:i+1]]]:
+            for filename in filenames[indices[split_indices[i:i+1]]]:
                 os.rename(os.path.join(data_root, filename), os.path.join(save_path, filename))
 
-def waymo_to_pytorch_offline(idx_dataset_batch):
+def waymo_to_pytorch_offline(data_root, idx_dataset_batch):
     '''
     Converts tfrecords from waymo open data set to
     (1) Images -> torch Tensor
@@ -195,13 +292,11 @@ def waymo_to_pytorch_offline(idx_dataset_batch):
         'y':        upper left corner y                     !!labeling not as in original!!
         'width':    width of corresponding bounding box     !!labeling not as in original!!
         'height':   height of corresponding bbounding box   !!labeling not as in original!!
-    '''    
-
-    data_root = os.path.join('content', 'mnt', 'My Drive', 'Colab Notebooks', 'DeepCV_Packages')
-    save_path = os.path.join(data_root, 'data')                                                
-    save_path_labels = os.path.join(save_path, 'labels')
-    save_path_images = os.path.join(save_path, 'images')
-    save_path_lidar = os.path.join(save_path, 'lidar')
+    '''                                                  
+    # dir names
+    save_path_labels = os.path.join(data_root, 'labels')
+    save_path_images = os.path.join(data_root, 'images')
+    save_path_lidar = os.path.join(data_root, 'lidar')
 
     # create save dirs if not exist
     Path(save_path_labels).mkdir(exist_ok=True)
@@ -212,58 +307,60 @@ def waymo_to_pytorch_offline(idx_dataset_batch):
     raw_dir_entries = os.listdir(data_root)
     for idx_entry, entry in enumerate(raw_dir_entries):
 
-        # for all tfrecord files
-        if entry.endswith('.tfrecord'):                                                     
-            dataset = tf.data.TFRecordDataset(os.path.join(data_root, entry), compression_type='')           # read tfrecord
+        # skip all non tfrecord files
+        if not entry.endswith('.tfrecord'):  
+            continue
 
-            # for all datasets stored in tfrecord
-            for idx_data, data in enumerate(dataset):
-                frame = open_dataset.Frame()
-                frame.ParseFromString(bytearray(data.numpy()))                                  # pass data from tfrecord to frame
+        dataset = tf.data.TFRecordDataset(os.path.join(data_root, entry), compression_type='')           # read tfrecord
 
-                # for all images of current frame
-                for idx_img, image in enumerate(frame.images):                                  # can probably reduce this + next if to: image = frame.images[0]
-                    
-                    # Only consider FRONT images
-                    if image.name != 1:                                                         # if not CameraName == FRONT: skip; best lidar, rgb match
+        # for all datasets stored in tfrecord
+        for idx_data, data in enumerate(dataset):
+            frame = open_dataset.Frame()
+            frame.ParseFromString(bytearray(data.numpy()))                                  # pass data from tfrecord to frame
+
+            # for all images of current frame
+            for idx_img, image in enumerate(frame.images):                                  # can probably reduce this + next if to: image = frame.images[0]
+                
+                # Only consider FRONT images
+                if image.name != 1:                                                         # if not CameraName == FRONT: skip; best lidar, rgb match
+                    continue
+                
+                ### retrieve, convert and save rgb data 
+                np_img = np.moveaxis(tf.image.decode_jpeg(image.image).numpy(), -1, 0)      # frame -> np array with tensor like dims: channels,y,x
+                img_tensor = torch.Tensor(np_img).unsqueeze(0)                              # np array -> torch Tensor: add batch size as first dim      
+                img_filename = 'img_%d_%d_%d_%d' %(idx_dataset_batch, idx_entry, idx_data, idx_img) 
+                torch.save(img_tensor, os.path.join(save_path_images, img_filename))                     
+                
+                ### retrieve, convert and save lidar data
+                (range_images, camera_projections,
+                    range_image_top_pose) = frame_utils.parse_range_image_and_camera_projection(
+                                        frame)
+                points, cp_points = frame_utils.convert_range_image_to_point_cloud(
+                                        frame,
+                                        range_images,
+                                        camera_projections,
+                                        range_image_top_pose)
+                lidar_array = extract_lidar_array_from_point_cloud(points, cp_points)       # lidar corresponds to image due to the mask in this function
+                range_tensor = lidar_array_to_image_like_tensor(lidar_array)
+                # range_tensor = pool_range_tensor(range_tensor)                            # while preserving most data points WxH --> W/4xH/4
+                lidar_filename = 'lidar_' + img_filename
+                torch.save(range_tensor, os.path.join(save_path_lidar, lidar_filename))
+
+                ### retrieve, convert and save labels 
+                label_dict = {}                                                             # dict of dicts
+                labels_filename = 'labels_' + img_filename
+                for camera_labels in frame.camera_labels:
+                    # ignore labels corresponding to other images
+                    if camera_labels.name != image.name:
                         continue
-                    
-                    ### retrieve, convert and save rgb data 
-                    np_img = np.moveaxis(tf.image.decode_jpeg(image.image).numpy(), -1, 0)      # frame -> np array with tensor like dims: channels,y,x
-                    img_tensor = torch.Tensor(np_img).unsqueeze(0)                              # np array -> torch Tensor: add batch size as first dim      
-                    img_filename = 'img_%d_%d_%d_%d' %(idx_dataset_batch, idx_entry, idx_data, idx_img) 
-                    torch.save(img_tensor, os.path.join(save_path_images, img_filename))                     
-                    
-                    ### retrieve, convert and save lidar data
-                    (range_images, camera_projections,
-                        range_image_top_pose) = frame_utils.parse_range_image_and_camera_projection(
-                                            frame)
-                    points, cp_points = frame_utils.convert_range_image_to_point_cloud(
-                                            frame,
-                                            range_images,
-                                            camera_projections,
-                                            range_image_top_pose)
-                    lidar_array = extract_lidar_array_from_point_cloud(points, cp_points)       # lidar corresponds to image due to the mask in this function
-                    range_tensor = lidar_array_to_image_like_tensor(lidar_array)
-                    # range_tensor = pool_range_tensor(range_tensor)                            # while preserving most data points WxH --> W/4xH/4
-                    lidar_filename = 'lidar_' + img_filename
-                    torch.save(range_tensor, os.path.join(save_path_lidar, lidar_filename))
+                    # for all labels
+                    for idx_label, label in enumerate(camera_labels.labels):
+                        label_dict[str(idx_label)] = {                                      
+                            'type':label.type,                                              # weird waymo labeling
+                            'x':int(label.box.center_x - 0.5*label.box.length),
+                            'y':int(label.box.center_y - 0.5*label.box.width),
+                            'height':int(label.box.width),
+                            'width':int(label.box.length)
+                        }
 
-                    ### retrieve, convert and save labels 
-                    label_dict = {}                                                             # dict of dicts
-                    labels_filename = 'labels_' + img_filename
-                    for camera_labels in frame.camera_labels:
-                        # ignore labels corresponding to other images
-                        if camera_labels.name != image.name:
-                            continue
-                        # for all labels
-                        for idx_label, label in enumerate(camera_labels.labels):
-                            label_dict[str(idx_label)] = {                                      
-                                'type':label.type,                                              # weird waymo labeling
-                                'x':int(label.box.center_x - 0.5*label.box.length),
-                                'y':int(label.box.center_y - 0.5*label.box.width),
-                                'height':int(label.box.width),
-                                'width':int(label.box.length)
-                            }
-
-                    save_dict(label_dict, os.path.join(save_path_labels, labels_filename))
+                save_dict(label_dict, os.path.join(save_path_labels, labels_filename))

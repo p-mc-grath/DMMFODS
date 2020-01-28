@@ -1,18 +1,24 @@
 import torch
+import pickle
 from os import listdir
 from os.path import join
 from torch.utils.data import Dataset, DataLoader
-from Dense_U_Net_lidar_helper import load_dict
+from ..utils.Dense_U_Net_lidar_helper import load_dict
 
 class WaymoDataset(Dataset):
-    def __init__(self, rgb_root, lidar_root, label_root):
-
+    def __init__(self, mode, config):
+        '''
+        Assumes dirs to only contain the respective data !!!
+        Assumes data to be sorted the same in all dirs !!!
+        '''
         super().__init__()
+        
+        root = config.dir.data[mode].__dict__
 
         # filenames incl path
-        self.rgb_files = [join(rgb_root, file) for file in listdir(rgb_root)]
-        self.lidar_files = [join(lidar_root, file) for file in listdir(lidar_root)]
-        self.label_files = [join(label_root, file) for file in listdir(label_root)]  
+        self.files = {}
+        for k in root:
+            self.files[k] = [join(root[k], file) for file in listdir(root[k])] 
         
         self._check_data_integrity()
 
@@ -22,47 +28,44 @@ class WaymoDataset(Dataset):
             idx = idx.tolist()
 
         # load data corresponding to idx
-        image = torch.load(self.rgb_files[idx])    
-        lidar = torch.load(self.lidar_files[idx])
-        labels= load_dict(self.label_files[idx])
+        image = torch.load(self.files['images'][idx])    
+        lidar = torch.load(self.files['lidar'][idx])
+        labels= load_dict(self.files['labels'][idx])
     
         return {'image': image, 'lidar': lidar, 'labels': labels}
 
     def __len__(self):
-        return len(self.rgb_files)
+        return len(self.files['images'])
 
     def _check_data_integrity(self):
-        for i in range(len(self.rgb_files)):
-            assert self.lidar_files[i].endswith(self.rgb_files[i]), 'something in lidar data dir that does not belong' 
-            assert self.label_files[i].endswith(self.rgb_files[i]), 'something in label data dir that does not belong'
+        for i in range(self.__len__):
+            assert self.files['lidar'][i].endswith(self.files['images'][i]), 'something in lidar data dir that does not belong' 
+            assert self.files['labels'][i].endswith(self.files['images'][i]), 'something in label data dir that does not belong'
 
 class WaymoDataset_Loader:
     # TODO batch size
     # TODO num_workers
-    def __init__(self, mode, data_root, bn):
-        self.mode = mode
+    def __init__(self, config):
+        self.mode = config.loader.mode
 
         if self.mode == 'train':
-            train_set = WaymoDataset(join(data_root, 'train', 'images'), 
-                                    join(data_root, 'train', 'lidar'), 
-                                    join(data_root, 'train', 'labels'))
-            valid_set = WaymoDataset(join(data_root, 'val', 'images'), 
-                                    join(data_root, 'val', 'lidar'), 
-                                    join(data_root, 'val', 'labels'))
+            train_set = WaymoDataset('train', config)
+            valid_set = WaymoDataset('val', config)
 
-            self.train_loader = DataLoader(train_set, batch_size=bn)
-            self.valid_loader = DataLoader(valid_set, batch_size=bn)
-            self.train_iterations = (len(train_set) + bn) // bn
-            self.valid_iterations = (len(valid_set) + bn) // bn
+            self.train_loader = DataLoader(train_set, batch_size=config.loader.batch_size)
+            self.valid_loader = DataLoader(valid_set, batch_size=config.loader.batch_size)
+            self.train_iterations = (len(train_set) + config.loader.batch_size) // config.loader.batch_size
+            self.valid_iterations = (len(valid_set) + config.loader.batch_size) // config.loader.batch_size
 
         elif self.mode == 'test':
 
-            test_set = WaymoDataset(join(data_root, 'test', 'images'), 
-                                    join(data_root, 'test', 'lidar'), 
-                                    join(data_root, 'test', 'labels'))
+            test_set = WaymoDataset('test', config)
 
-            self.test_loader = DataLoader(test_set, batch_size=bn)
-            self.test_iterations = (len(test_set) + bn) // bn
+            self.test_loader = DataLoader(test_set, batch_size=config.loader.batch_size)
+            self.test_iterations = (len(test_set) + config.loader.batch_size) // config.loader.batch_size
 
         else:
             raise Exception('Please choose a proper mode for data loading')
+
+
+        
