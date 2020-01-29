@@ -6,8 +6,8 @@ import json
 
 from easydict import EasyDict as edict
 from six.moves import cPickle as pickle
+from os import listdir
 from os.path import join, isfile
-from google.colab import drive
 from pathlib import Path
 
 from waymo_open_dataset.utils import range_image_utils
@@ -17,17 +17,22 @@ from waymo_open_dataset import dataset_pb2 as open_dataset
 
 
 def create_config():
-
+    '''
+    create according to
+    https://github.com/moemen95/Pytorch-Project-Template/tree/4d2f7bea9819fe2e5e25153c5cc87c8b5f35f4b8
+    put into python for convenience with directories
+    '''
     config = {
         'dir': {
             'root': 'content/mnt/My Drive/Colab Notebooks/DeepCV_Packages'
         }
     }
+
     # create subdirs according to pytorch project template: https://github.com/moemen95/Pytorch-Project-Template/tree/4d2f7bea9819fe2e5e25153c5cc87c8b5f35f4b8
     for subdir in ['agents', 'graphs', 'data', 'utils', 'datasets', 'pretrained_weights', 'configs']:
-        config['dir'][subdir] = join(root, subdir)
+        config['dir'][subdir] = join(config['dir']['root'], subdir)
     config['dir']['graphs']['models'] = join(config['dir']['graphs'], 'models')
-    config['dir']['pretrained_weights']['best_checkpoint'] = join(config['dir']['pretrained_weights'], 'best_checkpoint.py.tar')
+    config['dir']['pretrained_weights']['best_checkpoint'] = join(config['dir']['pretrained_weights'], 'best_checkpoint.pth.tar')
 
     # directories according to distribute_data_into_train_val_test function in this script
     for mode in ['train', 'val', 'test']:
@@ -61,16 +66,24 @@ def create_config():
     # loader params
     config['loader'] = {
         'mode': 'train',
-        'workers': 4,
-        'batch_size': 4
+        'batch_size': 32,
+        'pin_memory': True,                                                 # TODO check what else has to be done
+        'num_workers': 4,
+        'async_loading': True                                               # should be same as pin_memory
     }
 
-    # optimizer params
+    # optimizer params; currently torch.optim.Adam default
     config['optimizer'] = {
         'type': 'Adam',
-        'learning_rate': 0.1,
-        'weight_decay': 0.0001,
-        'momentum': 0.9
+        'learning_rate': 0.001,
+        'beta1': 0.9,
+        'beta2': 0.999,
+        'eps': 1e-08,
+        'amsgrad': False,
+        'weight_decay': {
+            'every_n_epochs': 30,
+            'gamma': 0.1
+        }
     }
 
     # waymo dataset info
@@ -83,6 +96,12 @@ def create_config():
         'images': {
             'size': (3, 1920, 1280)
         }
+    }
+
+    # agent params
+    config['agent'] = {
+        'seed': 123,                                                        # fixed random seed ensures reproducibility
+        'max_epoch': 100
     }
     return config
 
@@ -144,10 +163,10 @@ def _create_ground_truth_bb(object_class, width, height):
     
     return ground_truth_box
 
-def create_ground_truth_maps(ground_truth, width_img, height_img):
+def create_ground_truth_maps(ground_truth, width_img=1920, height_img=1280):
     '''
     Arguments:
-        ground_truth: expected to be iterable containing dicts
+        ground_truth: expected to be dict containing dicts
                 dicts with following fields: type, x, y, width, height 
                 x, y coords of upper left corner
         width_img:  of original!! image
@@ -199,6 +218,16 @@ def load_dict(filename):
     with open(filename, 'rb') as handle:
         retrieved_dict = pickle.load(handle)
     return retrieved_dict 
+
+def convert_label_dicts_to_heat_maps(dir):
+    '''
+    Overwrites dict files with corresponding tensors
+    '''
+    files = listdir(dir) 
+    for file in files:
+        dict = load_dict(join(dir, file))
+        tensor = create_ground_truth_maps(dict)
+        torch.save(tensor, join(dir, file))
 
 def pool_range_tensor(range_tensor):
     '''
@@ -254,7 +283,7 @@ def distribute_data_into_train_val_test(data_root, split):
 
     move image, lidar and label data from their respective subdirectory
     to train, val, test subdirectories preserving their respective subdirectories
-    
+
     sampling is randomized; assuming same order of files in all subdirectories
 
     Arguments:
@@ -262,6 +291,7 @@ def distribute_data_into_train_val_test(data_root, split):
         split: list: [train_percentage, val_percentage, test_percentage]
     '''
     # same indices for all subdirs
+    num_samples = len(listdir(os.path.join(data_root, 'images')))
     indices = np.arange(num_samples)
     np.random.shuffle(indices)
     
@@ -273,7 +303,7 @@ def distribute_data_into_train_val_test(data_root, split):
         filenames = listdir(os.path.join(data_root, data_type))
         num_samples = len(filenames)
 
-        for i, sub_dir in enumerate(['train', 'val', 'test'])):
+        for i, sub_dir in enumerate(['train', 'val', 'test']):
             save_path = os.path.join(data_root, sub_dir, data_type)
             Path(save_path).mkdir(exist_ok=True)
 
