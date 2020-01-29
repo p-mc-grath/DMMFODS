@@ -9,7 +9,7 @@ from torchvision.models.densenet import model_urls, _DenseLayer, _DenseBlock, _T
 from torchvision.models.utils import load_state_dict_from_url
 from collections import OrderedDict
 from collections import deque 
-from ..utils.Dense_U_Net_lidar_helper import get_config # TODO check if relative import works
+from ..utils.Dense_U_Net_lidar_helper import get_config 
 
 # Structure of encoder basically same as 
 # https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py
@@ -55,6 +55,8 @@ class Dense_U_Net_lidar(nn.Module):
     
         super().__init__()
 
+        self.config = config
+
         # original densenet attributes
         self.growth_rate = config.model.growth_rate 
         self.block_config = config.model.block_config
@@ -69,11 +71,7 @@ class Dense_U_Net_lidar(nn.Module):
         self.num_layers_before_blocks = config.model.num_layers_before_blocks
         self.num_lidar_in_channels = config.model.num_lidar_in_channels
 
-        # not sure if optimizer checkpoint saves this
-        self.best_checkpoint_path = '/content/notebooks/DeepCV_Packages/best_checkpoint.pth.tar'
-        self.epoch = config.optimizer.epoch
-        self.loss = config.optimizer.loss
-
+        # downsampling 1920, 1280 -> 192, 128
         self.downsample_rgb = nn.MaxPool2d(kernel_size=10, stride=10, padding=0)                    # TODO better average??
 
         # First convolution rgb
@@ -230,59 +228,47 @@ class Dense_U_Net_lidar(nn.Module):
 
         return features
 
-# load pretrained state dict
-def _load_state_dict(model, model_url, state_dict_checkpoint, progress):
+def _load_state_dict(model, config, model_url, progress):
+    '''
+    load pretrained densenet state dict from torchvision into model
     
-    # load from torchvision server
-    if state_dict_checkpoint is None:
-        
-        state_dict_checkpoint = load_state_dict_from_url(model_url, progress=progress)
-        
-        # copied from mmdetection
-        # '.'s are no longer allowed in module names, but previous _DenseLayer
-        # has keys 'norm.1', 'relu.1', 'conv.1', 'norm.2', 'relu.2', 'conv.2'.
-        # They are also in the checkpoints in model_urls. This pattern is used
-        # to find such keys.
-        pattern = re.compile(
-            r'^(.*denselayer\d+\.(?:norm|relu|conv))\.((?:[12])\.(?:weight|bias|running_mean|running_var))$')
-        for key in list(state_dict_checkpoint.keys()):
-            res = pattern.match(key)
-            if res:
-                new_key = res.group(1) + res.group(2)
-                state_dict_checkpoint[new_key] = state_dict_checkpoint[key]
-                del state_dict_checkpoint[key]
+    copy from https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py
+    !!added sencond part before last line; that's why cannot simply import function 
+    '''
+    # '.'s are no longer allowed in module names, but previous _DenseLayer
+    # has keys 'norm.1', 'relu.1', 'conv.1', 'norm.2', 'relu.2', 'conv.2'.
+    # They are also in the checkpoints in model_urls. This pattern is used
+    # to find such keys.
+    pattern = re.compile(
+        r'^(.*denselayer\d+\.(?:norm|relu|conv))\.((?:[12])\.(?:weight|bias|running_mean|running_var))$')
 
-        # remove classifier from pretrained model TODO necessary? add rmv norm5?
-        del state_dict_checkpoint['classifier.weight']
-        del state_dict_checkpoint['classifier.bias']
+    state_dict_torchvision = load_state_dict_from_url(model_url, progress=progress)
+    for key in list(state_dict_torchvision.keys()):
+        res = pattern.match(key)
+        if res:
+            new_key = res.group(1) + res.group(2)
+            state_dict_torchvision[new_key] = state_dict_torchvision[key]
+            del state_dict_torchvision[key]
+
+    ### ADDED pytorch version such that it fits the Dense_U_Net_lidar
+
+    # probably not necessary because only matching keys are updated
+    del state_dict_torchvision['features.norm5.weight']
+    del state_dict_torchvision['classifier.weight']
+    del state_dict_torchvision['classifier.bias']
 
     # update state dict of model with retrieved pretrained values & load state_dict into model
     state_dict_model = model.state_dict()
-    state_dict_model.update(state_dict_checkpoint) 
+    state_dict_model.update(state_dict_torchvision) 
     model.load_state_dict(state_dict_model, strict=False)
 
-def _load_checkpoint(model, config, model_url, gdrive_checkpoint, progress):
-
-    # load checkpoint from gdrive
-    if gdrive_checkpoint:
-        checkpoint = torch.load(config.dir.pretrained_weights.best_checkpoint)
-        _load_state_dict(model, model_url, checkpoint['model_state_dict'], progress)
-        if model.optimizer is not None:
-            model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        model.epoch = checkpoint['epoch']
-        model.loss = checkpoint['loss']
-    else:
-        # get pretrained state_dict from pytorch  
-        _load_state_dict(model, model_url, None, progress)
-        
-    # set model to training 
-    model.train()
-
 def _dense_u_net_lidar(arch, growth_rate, block_config, num_init_features, pretrained, progress,
-              gdrive_checkpoint, config):
+            config):
     if config is None:
-        # TODO rmv hard coded path
+        # TODO rmv; here only for testing convenience
         config = get_config(os.path.join('content', 'mnt', 'My Drive', 'Colab Notebooks', 'DeepCV_Packages'))
+    
+    # for compatibility with densenet original functions
     config.model.growth_rate = growth_rate
     config.model.block_config = block_config
     config.model.num_init_features = num_init_features
@@ -290,12 +276,12 @@ def _dense_u_net_lidar(arch, growth_rate, block_config, num_init_features, pretr
     model = Dense_U_Net_lidar(config)
     
     if pretrained:
-        _load_checkpoint(model, config, model_urls[arch], gdrive_checkpoint, progress)
+        _load_state_dict(model, config, model_urls[arch], progress)
         
     return model
 
 
-def densenet121_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True, config=None):
+def densenet121_u_lidar(pretrained=False, progress=True, config=None):
     r"""Densenet-121 model from
     `"Densely Connected Convolutional Networks" <https://arxiv.org/pdf/1608.06993.pdf>`_
     Args:
@@ -305,10 +291,10 @@ def densenet121_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True
           but slower. Default: *False*. See `"paper" <https://arxiv.org/pdf/1707.06990.pdf>`_
     """
     return _dense_u_net_lidar('densenet121', 32, (6, 12, 24, 16), 64, pretrained, progress,
-                     gdrive_checkpoint, config)
+                    config)
 
 
-def densenet161__u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True, config=None):
+def densenet161__u_lidar(pretrained=False, progress=True, config=None):
     r"""Densenet-161 model from
     `"Densely Connected Convolutional Networks" <https://arxiv.org/pdf/1608.06993.pdf>`_
     Args:
@@ -318,10 +304,10 @@ def densenet161__u_lidar(pretrained=False, gdrive_checkpoint=False, progress=Tru
           but slower. Default: *False*. See `"paper" <https://arxiv.org/pdf/1707.06990.pdf>`_
     """
     return _dense_u_net_lidar('densenet161', 48, (6, 12, 36, 24), 96, pretrained, progress,
-                     gdrive_checkpoint, config)
+                    config)
 
 
-def densenet169_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True, config=None):
+def densenet169_u_lidar(pretrained=False, progress=True, config=None):
     r"""Densenet-169 model from
     `"Densely Connected Convolutional Networks" <https://arxiv.org/pdf/1608.06993.pdf>`_
     Args:
@@ -331,10 +317,10 @@ def densenet169_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True
           but slower. Default: *False*. See `"paper" <https://arxiv.org/pdf/1707.06990.pdf>`_
     """
     return _dense_u_net_lidar('densenet169', 32, (6, 12, 32, 32), 64, pretrained, progress,
-                     gdrive_checkpoint, config)
+                    config)
 
 
-def densenet201_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True, config=None):
+def densenet201_u_lidar(pretrained=False, progress=True, config=None):
     r"""Densenet-201 model from
     `"Densely Connected Convolutional Networks" <https://arxiv.org/pdf/1608.06993.pdf>`_
     Args:
@@ -344,4 +330,4 @@ def densenet201_u_lidar(pretrained=False, gdrive_checkpoint=False, progress=True
           but slower. Default: *False*. See `"paper" <https://arxiv.org/pdf/1707.06990.pdf>`_
     """
     return _dense_u_net_lidar('densenet201', 32, (6, 12, 48, 32), 64, pretrained, progress,
-                     gdrive_checkpoint, config)
+                    config)
