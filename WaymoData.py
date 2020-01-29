@@ -8,8 +8,8 @@ from ..utils.Dense_U_Net_lidar_helper import load_dict
 class WaymoDataset(Dataset):
     def __init__(self, mode, config):
         '''
-        Assumes dirs to only contain the respective data !!!
-        Assumes data to be sorted the same in all dirs !!!
+        Dirs are expected to ONLY CONTAIN the respective DATA !!!
+        DATA is expected to be SORTED the SAME in all dirs !!!
         '''
         super().__init__()
         
@@ -23,7 +23,9 @@ class WaymoDataset(Dataset):
         self._check_data_integrity()
 
     def __getitem__(self, idx):
-
+        '''
+        returns dataset items at idx
+        '''
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
@@ -32,36 +34,55 @@ class WaymoDataset(Dataset):
         lidar = torch.load(self.files['lidar'][idx])
         labels= load_dict(self.files['labels'][idx])
     
-        return {'image': image, 'lidar': lidar, 'labels': labels}
+        return image, lidar, labels
 
     def __len__(self):
         return len(self.files['images'])
 
     def _check_data_integrity(self):
+        '''
+        check if names match as expected
+        '''
         for i in range(self.__len__):
             assert self.files['lidar'][i].endswith(self.files['images'][i]), 'something in lidar data dir that does not belong' 
             assert self.files['labels'][i].endswith(self.files['images'][i]), 'something in label data dir that does not belong'
 
 class WaymoDataset_Loader:
-    # TODO batch size
-    # TODO num_workers
+
     def __init__(self, config):
         self.mode = config.loader.mode
 
         if self.mode == 'train':
+            # dataset
             train_set = WaymoDataset('train', config)
             valid_set = WaymoDataset('val', config)
 
-            self.train_loader = DataLoader(train_set, batch_size=config.loader.batch_size)
-            self.valid_loader = DataLoader(valid_set, batch_size=config.loader.batch_size)
+            # actual loader
+            self.train_loader = DataLoader(train_set, 
+                batch_size=config.loader.batch_size, 
+                num_workers=config.loader.num_workers,
+                pin_memory=config.loader.pin_memory)
+            self.valid_loader = DataLoader(valid_set, 
+                batch_size=config.loader.batch_size,
+                num_workers=config.loader.num_workers,
+                pin_memory=config.loader.pin_memory)
+            
+            # iterations
             self.train_iterations = (len(train_set) + config.loader.batch_size) // config.loader.batch_size
             self.valid_iterations = (len(valid_set) + config.loader.batch_size) // config.loader.batch_size
 
         elif self.mode == 'test':
-
+            # dataset
             test_set = WaymoDataset('test', config)
 
-            self.test_loader = DataLoader(test_set, batch_size=config.loader.batch_size)
+            # loader also called VALID -> In Agent: valid function == test function; TODO find better solution 
+            # !! dataset input is different
+            self.valid_loader = DataLoader(test_set, 
+                batch_size=config.loader.batch_size,
+                num_workers=config.loader.num_workers,
+                pin_memory=config.loader.pin_memory)
+            
+            # iterations
             self.test_iterations = (len(test_set) + config.loader.batch_size) // config.loader.batch_size
 
         else:
