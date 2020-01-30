@@ -87,6 +87,3 @@ class WaymoDataset_Loader:
 
         else:
             raise Exception('Please choose a proper mode for data loading')
-
-
-        
