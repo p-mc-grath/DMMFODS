@@ -101,7 +101,14 @@ def create_config():
     # agent params
     config['agent'] = {
         'seed': 123,                                                        # fixed random seed ensures reproducibility
-        'max_epoch': 100
+        'max_epoch': 100,
+        'checkpoint': {
+            'epoch': 'epoch',
+            'iteration': 'iteration',
+            'best_val_acc': 'best_val_acc',
+            'state_dict': 'state_dict',
+            'optimizer': 'optimizer'
+        }
     }
     return config
 
