@@ -1,7 +1,7 @@
 # Deep Computer Vision lab course
 
 Task:       Multi-modal (rgb, lidar) object detection  
-Dataset:    Waymo Open Dataset 
+Dataset:    Waymo Open Dataset   
 Framework:  PyTorch
 
 Approach:  
