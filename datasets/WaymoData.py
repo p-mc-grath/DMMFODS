@@ -86,4 +86,11 @@ class WaymoDataset_Loader:
             self.test_iterations = (len(test_set) + config.loader.batch_size) // config.loader.batch_size
 
         else:
+<<<<<<< HEAD:WaymoData.py
             raise Exception('Please choose a proper mode for data loading')
+=======
+            raise Exception('Please choose a proper mode for data loading')
+
+
+        
+>>>>>>> 145dda5e673b8aaba5db906feedda89c7dda7a01:datasets/WaymoData.py
