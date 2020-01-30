@@ -6,7 +6,6 @@ from torch.backends import cudnn
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
-
 from ..graphs.models.Dense_U_Net_lidar import densenet121_u_lidar, Dense_U_Net_lidar
 from ..utils import Dense_U_Net_lidar_helper
 from ..dataset.WaymoData import WaymoDataset_Loader
@@ -36,9 +35,8 @@ class Dense_U_Net_lidar_Agent:
         # dataloader
         self.data_loader = WaymoDataset_Loader(self.config)
 
-        # loss 
-        # alternatively convert labels and outputs to logits and use nn.BCEWithLogitsLoss
-        self.loss = torch.nn.CrossEntropyLoss().cuda()
+        # pixel-wise cross-entropy loss 
+        self.loss = torch.nn.CrossEntropyLoss(reduction='none').cuda()
         
         # optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), 
@@ -84,11 +82,11 @@ class Dense_U_Net_lidar_Agent:
         :return:
         """
         state = {
-            'epoch': self.current_epoch,
-            'iteration': self.current_iteration,
-            'best_val_acc': self.best_val_acc,
-            'state_dict': self.model.state_dict(),
-            'optimizer': self.optimizer.state_dict()
+            self.config.agent.checkpoint.epoch: self.current_epoch,
+            self.config.agent.checkpoint.iteration: self.current_iteration,
+            self.config.agent.checkpoint.best_val_acc: self.best_val_acc,
+            self.config.agent.checkpoint.state_dict: self.model.state_dict(),
+            self.config.agent.checkpoint.optimizer: self.optimizer.state_dict()
         }
         # Save the state
         if is_best:
@@ -109,15 +107,19 @@ class Dense_U_Net_lidar_Agent:
             self.logger.info("Loading checkpoint '{}'".format(filename))
             checkpoint = torch.load(filename)
 
-            self.current_epoch = checkpoint['epoch']
-            self.current_iteration = checkpoint['iteration']
-            self.best_val_acc = checkpoint['best_val_acc']
-            self.model.load_state_dict(checkpoint['state_dict'])
-            self.optimizer.load_state_dict(checkpoint['optimizer'])
+            self.current_epoch = checkpoint[self.config.agent.checkpoint.epoch]
+            self.current_iteration = checkpoint[
+                self.config.agent.checkpoint.iteration]
+            self.best_val_acc = checkpoint[
+                self.config.agent.checkpoint.best_val_acc]
+            self.model.load_state_dict(checkpoint[
+                self.config.agent.checkpoint.state_dict])
+            self.optimizer.load_state_dict(checkpoint[
+                self.config.agent.checkpoint.optimizer])
 
             self.logger.info("Checkpoint loaded successfully from '{}' at (epoch {}) at (iteration {})\n"
                              .format(self.config.checkpoint_dir, checkpoint['epoch'], checkpoint['iteration']))
-        except OSError as e:
+        except OSError:
             self.logger.info("No checkpoint exists from '{}'. Skipping...".format(self.config.checkpoint_dir))
             self.logger.info("**First time to train**")
 
@@ -173,9 +175,7 @@ class Dense_U_Net_lidar_Agent:
             # forward pass
             prediction = self.model(image, lidar)
             
-            # loss
-            # TODO labels: make highest scoring class value at each pixel
-            # hacky:  criterion(output.permute(0, 2, 3, 1).view(-1, 2), target.permute(0, 2, 3, 1).view(-1, 2))
+            # pixel-wise loss
             current_loss = self.loss(prediction, label)
             if np.isnan(float(current_loss.item())):
                 raise ValueError('Loss is nan during training...')
@@ -225,8 +225,7 @@ class Dense_U_Net_lidar_Agent:
             # forward pass
             prediction = self.model(image, lidar)
             
-            # loss
-            # TODO labels: make highest scoring class value at each pixel
+            # pixel-wise loss
             current_loss = self.loss(prediction, label)
             if np.isnan(float(current_loss.item())):
                 raise ValueError('Loss is nan during training...')
