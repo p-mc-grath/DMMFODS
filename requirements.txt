@@ -1,10 +1,10 @@
-easydict==1.7
-numpy==1.14.5
-regex==2020.1.8
-six==1.13.0
-tensorflow==1.15.2
-tensorboardX==1.2
-torch==0.4.0
-torchvision==0.2.1
-tqdm==4.23.4
+easydict
+numpy
+regex
+six
+tensorflow
+tensorboardX
+torch
+torchvision
+tqdm
 
