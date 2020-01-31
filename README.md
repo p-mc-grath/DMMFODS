@@ -11,6 +11,8 @@ Approach:
   * concatenation layer added before second block  
 * Ground truth bounding boxes processed to segmentation masks
 * Loss: each pixel can independently belong to each of the classes (vehicle, pedestrian, cyclist)
+* Lidar data projected into image like tensor with zero values where no data  
+
 
 Following the structure suggested by:   
 https://github.com/moemen95/Pytorch-Project-Template  
@@ -25,4 +27,3 @@ https://arxiv.org/abs/1608.06993
 
 U-Net paper:  
 https://arxiv.org/abs/1505.04597
-
