@@ -9,7 +9,7 @@ from torchvision.models.densenet import model_urls, _DenseLayer, _DenseBlock, _T
 from torchvision.models.utils import load_state_dict_from_url
 from collections import OrderedDict
 from collections import deque 
-from ..utils.Dense_U_Net_lidar_helper import get_config 
+from ...utils.Dense_U_Net_lidar_helper import get_config 
 
 # Structure of encoder basically same as 
 # https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py
