@@ -78,7 +78,7 @@ def parse_requirements(fname='requirements.txt', with_version=True):
     return packages
 
 setup(
-        name='DeepCV_Lab',
+        name='deepcvlab',
         version=2.0,
         description='Object Detection',
         author='Paul Mc Grath',
