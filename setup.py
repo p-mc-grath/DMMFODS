@@ -84,7 +84,7 @@ setup(
         author='Paul Mc Grath',
         author_email='pmcgrath249@gmail.com',
         url='https://github.com/pmcgrath249/DeepCV_Lab',
-        packages=find_namespace_packages(exclude=['data', 'utils.waymo-od*']),
+        packages=find_namespace_packages(exclude=['src.data', 'src.utils.waymo-od*']),
         setup_requires=parse_requirements('requirements.txt', with_version=False),
         install_requires=parse_requirements('requirements.txt', with_version=False)  
 )
