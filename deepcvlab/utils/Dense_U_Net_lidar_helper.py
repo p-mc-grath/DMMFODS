@@ -29,16 +29,17 @@ def create_config():
     }
 
     # create subdirs according to pytorch project template: https://github.com/moemen95/Pytorch-Project-Template/tree/4d2f7bea9819fe2e5e25153c5cc87c8b5f35f4b8
-    for subdir in ['agents', 'graphs', 'data', 'utils', 'datasets', 'pretrained_weights', 'configs']:
+    for subdir in ['agents', 'graphs', 'utils', 'datasets', 'pretrained_weights', 'configs']:
         config['dir'][subdir] = join(config['dir']['root'], subdir)
-    config['dir']['graphs']['models'] = join(config['dir']['graphs'], 'models')
-    config['dir']['pretrained_weights']['best_checkpoint'] = join(config['dir']['pretrained_weights'], 'best_checkpoint.pth.tar')
+    config['dir']['graphs'] = {'models': join(config['dir']['graphs'], 'models')}
+    config['dir']['pretrained_weights'] = {'best_checkpoint': join(config['dir']['pretrained_weights'], 'best_checkpoint.pth.tar')}
+    config['dir']['data'] = {'data': join(config['dir']['root'], 'data')}
 
     # directories according to distribute_data_into_train_val_test function in this script
     for mode in ['train', 'val', 'test']:
         config['dir']['data'][mode] = {}
         for datatype in ['images', 'lidar', 'labels']:
-            config['dir']['data'][mode][datatype] = join(config['dir']['data'], mode, datatype)
+                config['dir']['data'][mode][datatype] = join(config['dir']['data']['data'], mode, datatype)
 
     # all script names
     config['scripts'] = {
