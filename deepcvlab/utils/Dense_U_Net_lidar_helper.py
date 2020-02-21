@@ -126,6 +126,7 @@ def get_config(root=''):
         config = create_config()
 
     return edict(config)
+
 ############################################################################
 # Ground Truth functions
 ############################################################################
@@ -229,6 +230,7 @@ def load_dict(filename):
 
 def convert_label_dicts_to_heat_maps(dir):
     '''
+    unused
     Overwrites dict files with corresponding tensors
     '''
     files = listdir(dir) 
@@ -318,7 +320,7 @@ def distribute_data_into_train_val_test(data_root, split):
             for filename in filenames[indices[split_indices[i:i+1]]]:
                 os.rename(os.path.join(data_root, filename), os.path.join(save_path, filename))
 
-def waymo_to_pytorch_offline(data_root, idx_dataset_batch):
+def waymo_to_pytorch_offline(data_root, idx_dataset_batch=-1):
     '''
     Converts tfrecords from waymo open data set to
     (1) Images -> torch Tensor
@@ -380,7 +382,6 @@ def waymo_to_pytorch_offline(data_root, idx_dataset_batch):
                                         range_image_top_pose)
                 lidar_array = extract_lidar_array_from_point_cloud(points, cp_points)       # lidar corresponds to image due to the mask in this function
                 range_tensor = lidar_array_to_image_like_tensor(lidar_array)
-                # range_tensor = pool_range_tensor(range_tensor)                            # while preserving most data points WxH --> W/4xH/4
                 lidar_filename = 'lidar_' + img_filename
                 torch.save(range_tensor, os.path.join(save_path_lidar, lidar_filename))
 
@@ -400,5 +401,9 @@ def waymo_to_pytorch_offline(data_root, idx_dataset_batch):
                             'height':int(label.box.width),
                             'width':int(label.box.length)
                         }
-
                 save_dict(label_dict, os.path.join(save_path_labels, labels_filename))
+
+                ### create ground truth maps from labels and save
+                heat_map_filename = 'heat_map_' + img_filename
+                heat_map = create_ground_truth_maps(label_dict)
+                torch.save(heat_map, os.path.join(save_path_labels, heat_map_filename))
