@@ -113,7 +113,7 @@ def create_config():
     }
     return config
 
-def get_config(root):
+def get_config(root=''):
     '''
     Using json because human readable
     '''
