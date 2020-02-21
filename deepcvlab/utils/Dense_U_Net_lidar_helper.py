@@ -28,19 +28,6 @@ def create_config():
         }
     }
 
-    # create subdirs according to pytorch project template: https://github.com/moemen95/Pytorch-Project-Template/tree/4d2f7bea9819fe2e5e25153c5cc87c8b5f35f4b8
-    for subdir in ['agents', 'graphs', 'utils', 'datasets', 'pretrained_weights', 'configs']:
-        config['dir'][subdir] = join(config['dir']['root'], subdir)
-    config['dir']['graphs'] = {'models': join(config['dir']['graphs'], 'models')}
-    config['dir']['pretrained_weights'] = {'best_checkpoint': join(config['dir']['pretrained_weights'], 'best_checkpoint.pth.tar')}
-    config['dir']['data'] = {'data': join(config['dir']['root'], 'data')}
-
-    # directories according to distribute_data_into_train_val_test function in this script
-    for mode in ['train', 'val', 'test']:
-        config['dir']['data'][mode] = {}
-        for datatype in ['images', 'lidar', 'labels']:
-                config['dir']['data'][mode][datatype] = join(config['dir']['data']['data'], mode, datatype)
-
     # all script names
     config['scripts'] = {
         'model': 'Dense_U_Net_lidar.py',
@@ -96,7 +83,8 @@ def create_config():
         },
         'images': {
             'size': (3, 1920, 1280)
-        }
+        },
+        'datatypes': ['images', 'lidar', 'labels', 'heat_maps']
     }
 
     # agent params
@@ -111,6 +99,20 @@ def create_config():
             'optimizer': 'optimizer'
         }
     }
+
+    # create subdirs according to pytorch project template: https://github.com/moemen95/Pytorch-Project-Template/tree/4d2f7bea9819fe2e5e25153c5cc87c8b5f35f4b8
+    for subdir in ['agents', 'graphs', 'utils', 'datasets', 'pretrained_weights', 'configs']:
+        config['dir'][subdir] = join(config['dir']['root'], subdir)
+    config['dir']['graphs'] = {'models': join(config['dir']['graphs'], 'models')}
+    config['dir']['pretrained_weights'] = {'best_checkpoint': join(config['dir']['pretrained_weights'], 'best_checkpoint.pth.tar')}
+    config['dir']['data'] = {'data': join(config['dir']['root'], 'data')}
+
+    # directories according to distribute_data_into_train_val_test function in this script
+    for mode in ['train', 'val', 'test']:
+        config['dir']['data'][mode] = {}
+        for datatype in config['dataset']['datatypes']:
+                config['dir']['data'][mode][datatype] = join(config['dir']['data']['data'], mode, datatype)
+
     return config
 
 def get_config(root=''):
@@ -287,7 +289,7 @@ def extract_lidar_array_from_point_cloud(points, cp_points):
 
     return lidar_array
 
-def distribute_data_into_train_val_test(data_root, split):
+def distribute_data_into_train_val_test(config, split):
     '''
     reason: colab might disconnect during training; better have hard separation of data subsets!
 
@@ -297,11 +299,11 @@ def distribute_data_into_train_val_test(data_root, split):
     sampling is randomized; assuming same order of files in all subdirectories
 
     Arguments:
-        data_root: dir path above subdirectories ['labels','images','lidar']
+        config: edict
         split: list: [train_percentage, val_percentage, test_percentage]
     '''
     # same indices for all subdirs
-    num_samples = len(listdir(os.path.join(data_root, 'images')))
+    num_samples = len(listdir(os.path.join(config.dir.root, 'images')))
     indices = np.arange(num_samples)
     np.random.shuffle(indices)
     
@@ -309,18 +311,17 @@ def distribute_data_into_train_val_test(data_root, split):
     split = np.array(split)*num_samples
     split_indices = np.array([0, split[0], split[0]+split[1], num_samples])
         
-    for data_type in ['labels','images','lidar']:
-        filenames = listdir(os.path.join(data_root, data_type))
-        num_samples = len(filenames)
+    for data_type in config.dataset.datatypes:
+        filenames = listdir(os.path.join(config.dir.root, data_type))
 
         for i, sub_dir in enumerate(['train', 'val', 'test']):
-            save_path = os.path.join(data_root, sub_dir, data_type)
+            save_path = os.path.join(config.dir.root, sub_dir, data_type)
             Path(save_path).mkdir(exist_ok=True)
 
             for filename in filenames[indices[split_indices[i:i+1]]]:
-                os.rename(os.path.join(data_root, filename), os.path.join(save_path, filename))
+                os.rename(os.path.join(config.dir.root, filename), os.path.join(save_path, filename))
 
-def waymo_to_pytorch_offline(data_root, idx_dataset_batch=-1):
+def waymo_to_pytorch_offline(config, idx_dataset_batch=-1):
     '''
     Converts tfrecords from waymo open data set to
     (1) Images -> torch Tensor
@@ -332,17 +333,21 @@ def waymo_to_pytorch_offline(data_root, idx_dataset_batch=-1):
         'y':        upper left corner y                     !!labeling not as in original!!
         'width':    width of corresponding bounding box     !!labeling not as in original!!
         'height':   height of corresponding bbounding box   !!labeling not as in original!!
+    (4) heat_maps from labels -> torch Tensor; image like
     '''                                                  
     # dir names
+    data_root = config.dir.root
     save_path_labels = os.path.join(data_root, 'labels')
     save_path_images = os.path.join(data_root, 'images')
     save_path_lidar = os.path.join(data_root, 'lidar')
+    save_path_heat_maps = os.path.join(data_root, 'heat_maps')
 
     # create save dirs if not exist
     Path(save_path_labels).mkdir(exist_ok=True)
     Path(save_path_images).mkdir(exist_ok=True)
     Path(save_path_lidar).mkdir(exist_ok=True)
-
+    Path(save_path_heat_maps).mkdir(exist_ok=True)
+    
     # read all entries in data root directory
     raw_dir_entries = os.listdir(data_root)
     for idx_entry, entry in enumerate(raw_dir_entries):
@@ -406,4 +411,4 @@ def waymo_to_pytorch_offline(data_root, idx_dataset_batch=-1):
                 ### create ground truth maps from labels and save
                 heat_map_filename = 'heat_map_' + img_filename
                 heat_map = create_ground_truth_maps(label_dict)
-                torch.save(heat_map, os.path.join(save_path_labels, heat_map_filename))
+                torch.save(heat_map, os.path.join(save_path_heat_maps, heat_map_filename))
