@@ -336,7 +336,7 @@ def waymo_to_pytorch_offline(config, idx_dataset_batch=-1):
     (4) heat_maps from labels -> torch Tensor; image like
     '''                                                  
     # dir names
-    data_root = config.dir.root
+    data_root = config.dir.data
     save_path_labels = os.path.join(data_root, 'labels')
     save_path_images = os.path.join(data_root, 'images')
     save_path_lidar = os.path.join(data_root, 'lidar')
