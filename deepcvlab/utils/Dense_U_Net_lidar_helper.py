@@ -196,7 +196,7 @@ def create_ground_truth_maps(ground_truth, width_img=1920, height_img=1280):
             x = elem['x']
             y = elem['y'] 
 
-            obj_idx = (object_class==1)*0+(object_class==2)*1+(object_class==4)*2
+            obj_idx = (object_class==1)*0+(object_class==2)*1+(object_class==4)*2               # remapping obj identifying indeces
 
             maps[0, obj_idx, y:y+height_bb, x:x+width_bb] = _create_ground_truth_bb(object_class, width_bb, height_bb)
         
@@ -265,7 +265,7 @@ def lidar_array_to_image_like_tensor(lidar_array, shape=(1,1,1280,1920)):
     '''
     range_tensor = torch.zeros(shape)
     for [x, y, d] in lidar_array:
-        range_tensor[1,1,int(y),int(x)] = d.item()                                              # tensor does not accept np.float32
+        range_tensor[0,0,int(y),int(x)] = d.item()                                              # tensor does not accept np.float32
     
     return range_tensor
 
