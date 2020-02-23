@@ -105,13 +105,13 @@ def create_config():
         config['dir'][subdir] = join(config['dir']['root'], subdir)
     config['dir']['graphs'] = {'models': join(config['dir']['graphs'], 'models')}
     config['dir']['pretrained_weights'] = {'best_checkpoint': join(config['dir']['pretrained_weights'], 'best_checkpoint.pth.tar')}
-    config['dir']['data'] = {'data': join(config['dir']['root'], 'data')}
+    config['dir']['data'] = {'root': join(config['dir']['root'], 'data')}                       # because config.dir.data. train,test,val also exist
 
     # directories according to distribute_data_into_train_val_test function in this script
     for mode in ['train', 'val', 'test']:
         config['dir']['data'][mode] = {}
         for datatype in config['dataset']['datatypes']:
-                config['dir']['data'][mode][datatype] = join(config['dir']['data']['data'], mode, datatype)
+                config['dir']['data'][mode][datatype] = join(config['dir']['data']['root'], mode, datatype)
 
     return config
 
@@ -303,7 +303,7 @@ def distribute_data_into_train_val_test(config, split):
         split: list: [train_percentage, val_percentage, test_percentage]
     '''
     # same indices for all subdirs
-    num_samples = len(listdir(os.path.join(config.dir.data, 'images')))
+    num_samples = len(listdir(os.path.join(config.dir.data.root, 'images')))
     indices = np.arange(num_samples)
     np.random.shuffle(indices)
     
@@ -312,11 +312,11 @@ def distribute_data_into_train_val_test(config, split):
     split_indices = np.array([0, split[0], split[0]+split[1], num_samples])
         
     for data_type in config.dataset.datatypes: 
-        old_path = os.path.join(config.dir.data, data_type)
+        old_path = os.path.join(config.dir.data.root, data_type)
         filenames = listdir(old_path)
 
         for i, sub_dir in enumerate(['train', 'val', 'test']):
-            new_path = os.path.join(config.dir.data, sub_dir, data_type)
+            new_path = os.path.join(config.dir.data.root, sub_dir, data_type)
             Path(new_path).mkdir(exist_ok=True)
 
             for filename in filenames[indices[split_indices[i:i+1]]]:
@@ -341,7 +341,7 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
         config = get_config()
 
     # dir names
-    data_root = config.dir.data
+    data_root = config.dir.data.root
     save_path_labels = os.path.join(data_root, 'labels')
     save_path_images = os.path.join(data_root, 'images')
     save_path_lidar = os.path.join(data_root, 'lidar')
