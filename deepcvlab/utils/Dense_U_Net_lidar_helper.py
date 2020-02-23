@@ -303,7 +303,7 @@ def distribute_data_into_train_val_test(config, split):
         split: list: [train_percentage, val_percentage, test_percentage]
     '''
     # same indices for all subdirs
-    num_samples = len(listdir(os.path.join(config.dir.root, 'images')))
+    num_samples = len(listdir(os.path.join(config.dir.data, 'images')))
     indices = np.arange(num_samples)
     np.random.shuffle(indices)
     
@@ -311,15 +311,16 @@ def distribute_data_into_train_val_test(config, split):
     split = np.array(split)*num_samples
     split_indices = np.array([0, split[0], split[0]+split[1], num_samples])
         
-    for data_type in config.dataset.datatypes:
-        filenames = listdir(os.path.join(config.dir.root, data_type))
+    for data_type in config.dataset.datatypes: 
+        old_path = os.path.join(config.dir.data, data_type)
+        filenames = listdir(old_path)
 
         for i, sub_dir in enumerate(['train', 'val', 'test']):
-            save_path = os.path.join(config.dir.root, sub_dir, data_type)
-            Path(save_path).mkdir(exist_ok=True)
+            new_path = os.path.join(config.dir.data, sub_dir, data_type)
+            Path(new_path).mkdir(exist_ok=True)
 
             for filename in filenames[indices[split_indices[i:i+1]]]:
-                os.rename(os.path.join(config.dir.root, filename), os.path.join(save_path, filename))
+                os.rename(os.path.join(old_path, filename), os.path.join(new_path, filename))
 
 def waymo_to_pytorch_offline(config, idx_dataset_batch=-1):
     '''
