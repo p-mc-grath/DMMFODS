@@ -24,7 +24,7 @@ def create_config():
     '''
     config = {
         'dir': {
-            'root': 'content/mnt/My Drive/Colab Notebooks/DeepCV_Packages/DeepCVLab/deepcvlab'
+            'root': 'content/drive/My Drive/Colab Notebooks/DeepCV_Packages/DeepCVLab/deepcvlab'
         }
     }
 
