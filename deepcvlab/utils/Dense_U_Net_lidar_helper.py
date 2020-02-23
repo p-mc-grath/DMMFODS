@@ -337,7 +337,10 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
         'width':    width of corresponding bounding box     !!labeling not as in original!!
         'height':   height of corresponding bbounding box   !!labeling not as in original!!
     (4) heat_maps from labels -> torch Tensor; image like
-    '''                                                  
+    '''      
+    # allows __iter__() for tf record dataset
+    tf.compat.v1.enable_eager_execution()
+
     # get config
     if config is None:
         config = get_config()
