@@ -322,7 +322,7 @@ def distribute_data_into_train_val_test(config, split):
             for filename in filenames[indices[split_indices[i:i+1]]]:
                 os.rename(os.path.join(old_path, filename), os.path.join(new_path, filename))
 
-def waymo_to_pytorch_offline(config, idx_dataset_batch=-1):
+def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
     '''
     Converts tfrecords from waymo open data set to
     (1) Images -> torch Tensor
@@ -336,6 +336,10 @@ def waymo_to_pytorch_offline(config, idx_dataset_batch=-1):
         'height':   height of corresponding bbounding box   !!labeling not as in original!!
     (4) heat_maps from labels -> torch Tensor; image like
     '''                                                  
+    # get config
+    if config is None:
+        config = get_config()
+
     # dir names
     data_root = config.dir.data
     save_path_labels = os.path.join(data_root, 'labels')
