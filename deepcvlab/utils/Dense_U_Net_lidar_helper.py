@@ -22,9 +22,11 @@ def create_config():
     https://github.com/moemen95/Pytorch-Project-Template/tree/4d2f7bea9819fe2e5e25153c5cc87c8b5f35f4b8
     put into python for convenience with directories
     '''
+
+    # root dir
     config = {
         'dir': {
-            'root': 'content/drive/My Drive/Colab Notebooks/DeepCV_Packages/DeepCVLab/deepcvlab'
+            'root': '/content/drive/My Drive/Colab Notebooks/DeepCV_Packages/DeepCVLab/deepcvlab'
         }
     }
 
