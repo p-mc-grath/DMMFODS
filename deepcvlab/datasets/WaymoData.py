@@ -20,7 +20,7 @@ class WaymoDataset(Dataset):
         for k in root:
             self.files[k] = [join(root[k], file) for file in listdir(root[k])] 
         
-        self._check_data_integrity()
+        # self._check_data_integrity()
 
     def __getitem__(self, idx):
         '''
@@ -43,6 +43,7 @@ class WaymoDataset(Dataset):
     def _check_data_integrity(self):
         '''
         check if names match as expected
+        TODO does not work; names are whole paths not filenames only!!
         '''
         for i in range(self.__len__()):
             assert self.files['lidar'][i].endswith(self.files['images'][i]), self.files['lidar'][i] + ' ' + self.files['images'][i]
