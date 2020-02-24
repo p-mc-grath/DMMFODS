@@ -298,7 +298,7 @@ def distribute_data_into_train_val_test(split, config=None):
     move image, lidar and label data from their respective subdirectory
     to train, val, test subdirectories preserving their respective subdirectories
 
-    sampling is randomized; assuming same order of files in all subdirectories
+    sampling is randomized; assuming same ORDER and NUMBER OF FILES of files in all subdirectories
 
     Arguments:
         config: edict
@@ -329,6 +329,8 @@ def distribute_data_into_train_val_test(split, config=None):
                 filename = filenames[file_idx]
                 os.rename(os.path.join(old_path, filename), os.path.join(new_path, filename))
 
+        Path(old_path).rmdir()
+        
 def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
     '''
     Converts tfrecords from waymo open data set to
