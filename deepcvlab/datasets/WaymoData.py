@@ -85,7 +85,7 @@ class WaymoDataset_Loader:
                 pin_memory=config.loader.pin_memory)
             
             # iterations
-            self.test_iterations = (len(test_set) + config.loader.batch_size) // config.loader.batch_size
+            self.valid_iterations = (len(test_set) + config.loader.batch_size) // config.loader.batch_size
 
         else:
             raise Exception('Please choose a proper mode for data loading')
