@@ -423,5 +423,5 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
                 heat_map = create_ground_truth_maps(label_dict)
                 torch.save(heat_map, os.path.join(save_path_heat_maps, heat_map_filename))
 
-                return 1
-    return 0
+                return 1 #TODO rmv
+    return 0 #TODO rmv
