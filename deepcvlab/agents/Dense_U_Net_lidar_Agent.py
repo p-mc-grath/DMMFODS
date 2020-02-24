@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from ..graphs.models.Dense_U_Net_lidar import densenet121_u_lidar, Dense_U_Net_lidar
 from ..utils import Dense_U_Net_lidar_helper
-from ..dataset.WaymoData import WaymoDataset_Loader
+from ..datasets.WaymoData import WaymoDataset_Loader
 
 # optimizes performance if input size same at each iteration
 cudnn.benchmark = True
