@@ -321,11 +321,12 @@ def distribute_data_into_train_val_test(split, config=None):
         old_path = os.path.join(config.dir.data.root, data_type)
         filenames = listdir(old_path)
 
-        for i, sub_dir in enumerate(['train', 'val', 'test']):
+        for set_idx, sub_dir in enumerate(['train', 'val', 'test']):
             new_path = os.path.join(config.dir.data.root, sub_dir, data_type)
             Path(new_path).mkdir(parents=True, exist_ok=True)
 
-            for filename in filenames[indices[split_indices[i]:split_indices[i+1]]]:
+            for file_idx in indices[split_indices[set_idx]:split_indices[set_idx+1]]:
+                filename = filenames[file_idx]
                 os.rename(os.path.join(old_path, filename), os.path.join(new_path, filename))
 
 def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
