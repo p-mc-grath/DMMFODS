@@ -291,7 +291,7 @@ def extract_lidar_array_from_point_cloud(points, cp_points):
 
     return lidar_array
 
-def distribute_data_into_train_val_test(config, split):
+def distribute_data_into_train_val_test(split, config=None):
     '''
     reason: colab might disconnect during training; better have hard separation of data subsets!
 
@@ -304,6 +304,10 @@ def distribute_data_into_train_val_test(config, split):
         config: edict
         split: list: [train_percentage, val_percentage, test_percentage]
     '''
+    # get config
+    if config is None:
+        config = get_config()
+
     # same indices for all subdirs
     num_samples = len(listdir(os.path.join(config.dir.data.root, 'images')))
     indices = np.arange(num_samples)
