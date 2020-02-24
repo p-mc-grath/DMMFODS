@@ -315,7 +315,7 @@ def distribute_data_into_train_val_test(split, config=None):
     
     # make splits to split_indices for indices list
     split = np.array(split)*num_samples
-    split_indices = np.array([0, split[0], split[0]+split[1], num_samples])
+    split_indices = [0, int(split[0]), int(split[0]+split[1]), num_samples] 
         
     for data_type in config.dataset.datatypes: 
         old_path = os.path.join(config.dir.data.root, data_type)
@@ -325,7 +325,7 @@ def distribute_data_into_train_val_test(split, config=None):
             new_path = os.path.join(config.dir.data.root, sub_dir, data_type)
             Path(new_path).mkdir(parents=True, exist_ok=True)
 
-            for filename in filenames[indices[split_indices[i:i+1]]]:
+            for filename in filenames[indices[split_indices[i]:split_indices[i+1]]]:
                 os.rename(os.path.join(old_path, filename), os.path.join(new_path, filename))
 
 def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
@@ -427,5 +427,7 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
                 heat_map = create_ground_truth_maps(label_dict)
                 torch.save(heat_map, os.path.join(save_path_heat_maps, heat_map_filename))
 
-                return 1 #TODO rmv
+                #TODO rmv
+                if idx_img == 9:
+                    return 1 
     return 0 #TODO rmv
