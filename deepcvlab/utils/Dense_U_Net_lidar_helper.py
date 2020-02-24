@@ -310,7 +310,7 @@ def distribute_data_into_train_val_test(split, config=None):
 
     # same indices for all subdirs
     num_samples = len(listdir(os.path.join(config.dir.data.root, 'images')))
-    indices = np.arange(num_samples)
+    indices = list(range(0, num_samples))
     np.random.shuffle(indices)
     
     # make splits to split_indices for indices list
