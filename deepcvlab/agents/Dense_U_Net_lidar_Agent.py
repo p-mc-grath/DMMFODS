@@ -165,18 +165,18 @@ class Dense_U_Net_lidar_Agent:
 
         current_batch = 0
         epoch_loss = [0]
-        for image, lidar, label in tqdm_batch:
+        for image, lidar, _, ht_map in tqdm_batch:
             # push to gpu if possible
             if self.cuda:
                 image = image.cuda(non_blocking=self.config.loader.async_loading)
                 lidar = lidar.cuda(non_blocking=self.config.loader.async_loading)
-                label = label.cuda(non_blocking=self.config.loader.async_loading)
+                ht_map = ht_map.cuda(non_blocking=self.config.loader.async_loading)
 
             # forward pass
             prediction = self.model(image, lidar)
             
             # pixel-wise loss
-            current_loss = self.loss(prediction, label)
+            current_loss = self.loss(prediction, ht_map)
             if np.isnan(float(current_loss.item())):
                 raise ValueError('Loss is nan during training...')
             epoch_loss += [epoch_loss[-1] + current_loss.item()]
@@ -215,18 +215,18 @@ class Dense_U_Net_lidar_Agent:
         self.model.eval()
 
         epoch_loss = [0]
-        for image, lidar, label in tqdm_batch:
+        for image, lidar, _, ht_map in tqdm_batch:
             # push to gpu if possible
             if self.cuda:
                 image = image.cuda(non_blocking=self.config.loader.async_loading)
                 lidar = lidar.cuda(non_blocking=self.config.loader.async_loading)
-                label = label.cuda(non_blocking=self.config.loader.async_loading)
+                ht_map = ht_map.cuda(non_blocking=self.config.loader.async_loading)
 
             # forward pass
             prediction = self.model(image, lidar)
             
             # pixel-wise loss
-            current_loss = self.loss(prediction, label)
+            current_loss = self.loss(prediction, ht_map)
             if np.isnan(float(current_loss.item())):
                 raise ValueError('Loss is nan during training...')
             epoch_loss += [epoch_loss[-1] + current_loss.item()]

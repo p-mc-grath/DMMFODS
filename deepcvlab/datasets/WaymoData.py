@@ -33,8 +33,9 @@ class WaymoDataset(Dataset):
         image = torch.load(self.files['images'][idx])    
         lidar = torch.load(self.files['lidar'][idx])
         labels= load_dict(self.files['labels'][idx])
+        ht_map= torch.load(self.files['heat_maps'][idx])
     
-        return image, lidar, labels
+        return image, lidar, labels, ht_map
 
     def __len__(self):
         return len(self.files['images'])
@@ -46,6 +47,7 @@ class WaymoDataset(Dataset):
         for i in range(self.__len__):
             assert self.files['lidar'][i].endswith(self.files['images'][i]), 'something in lidar data dir that does not belong' 
             assert self.files['labels'][i].endswith(self.files['images'][i]), 'something in label data dir that does not belong'
+            assert self.files['heat_maps'][i].endswith(self.files['images'][i]), 'something in heat_maps data dir that does not belong'
 
 class WaymoDataset_Loader:
 
