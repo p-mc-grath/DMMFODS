@@ -172,11 +172,6 @@ class Dense_U_Net_lidar_Agent:
                 lidar = lidar.cuda(non_blocking=self.config.loader.async_loading)
                 ht_map = ht_map.cuda(non_blocking=self.config.loader.async_loading)
 
-            # TODO rmv: debugging
-            print(image.shape)
-            print(lidar.shape)
-            print(ht_map.shape)
-
             # forward pass
             prediction = self.model(image, lidar)
             
