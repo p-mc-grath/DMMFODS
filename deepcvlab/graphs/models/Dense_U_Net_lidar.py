@@ -158,7 +158,7 @@ class Dense_U_Net_lidar(nn.Module):
             ]))
             self.decoder.add_module('Transposed_Convolution_Sequence_%d' %(i+1), transp_conv_seq)
             self.decoder.add_module('Transposed_Convolution_%d' %(i+1), nn.ConvTranspose2d(num_features, 
-                num_features, kernel_size=3, stride=2, padding=1))
+                num_features, 3, stride=2, padding=1))
             num_in_features = num_features*2
         
         # Upscaling to original size: input (96, 64)*2*1*2*5 = (1920,1280)
@@ -166,15 +166,15 @@ class Dense_U_Net_lidar(nn.Module):
                             ('norm0', nn.BatchNorm2d(num_features)),
                             ('relu0', nn.ReLU(inplace=True)),
                             ('t_conv0', nn.ConvTranspose2d(num_features, num_features, 
-                                kernel_size=5, stride=2, padding=2, bias=False)), 
+                                5, stride=2, padding=2, bias=False)), 
                             ('norm1', nn.BatchNorm2d(num_features)),
                             ('relu1', nn.ReLU(inplace=True)),
                             ('reduce_channels', nn.Conv2d(num_features, self.num_classes, 
-                                kernel_size=1, stride=1, padding=0, bias=False)),
+                                1, stride=1, padding=0, bias=False)),
                             ('norm2', nn.BatchNorm2d(self.num_classes)),
                             ('relu2', nn.ReLU(inplace=True)),
                             ('t_conv2', nn.ConvTranspose2d(self.num_classes, self.num_classes, 
-                                kernel_size=7, stride=2, padding=3, bias=False)),    
+                                7, stride=2, padding=3, bias=False)),    
                             ('Upsampling_Bilinear', nn.Upsample(scale_factor=5)),
                             ('out_sigmoid', nn.Sigmoid())
             ]))
@@ -205,21 +205,23 @@ class Dense_U_Net_lidar(nn.Module):
             features = enc_module(features)  
             
             # concat lidar and rgb
-            if i == self.num_layers_before_blocks + 2**(self.concat_before_block_num-2)+1: 
-                assert features.size() == lidar_features.size(), 'lidar and rgb data dim mismatch'
+            if i == self.num_layers_before_blocks + 2**(self.concat_before_block_num-2): 
+                assert features.size() == lidar_features.size(), str(features.size()) + ' ' + str(lidar_features.size())
                 features = torch.cat((features, lidar_features), 1)              
                 features = self.concat_module(features)
 
             # save features for decoder in stack
-            if isinstance(enc_module, _DenseBlock):
+            if i == self.num_layers_before_blocks-2:                                                # get size before maxpool before first block
+                HxW_shape_stack.append(features.size())
+            if isinstance(enc_module, _DenseBlock) and i<len(self.features)-1:                      # only blocks but skip last
                 features_from_enc_stack.append(features)                            
                 HxW_shape_stack.append(features.size())                                 
-        
+
         # decoding; ugly quick and dirty implementation 
         for i, dec_module in enumerate(self.decoder):
             if not isinstance(dec_module, nn.ConvTranspose2d):                                      # sequence without TransposedConv
                 if i > 0:                                                                           # concat upsampled data and data from encoder
-                    features = torch.cat((features, features_from_enc_stack.pop()), 1)  
+                    features = torch.cat((features, features_from_enc_stack.pop()), 1)
                 features = dec_module(features)
             else:                                                                                   # TransposedConv
                 features = dec_module(features, output_size=HxW_shape_stack.pop())       
@@ -264,9 +266,9 @@ def _load_state_dict(model, config, model_url, progress):
 
 def _dense_u_net_lidar(arch, growth_rate, block_config, num_init_features, pretrained, progress,
             config):
-    if config is None:
+    #if config is None:
         # TODO rmv; here only for testing convenience
-        config = get_config(os.path.join('content', 'mnt', 'My Drive', 'Colab Notebooks', 'DeepCV_Packages'))
+        #config = get_config(os.path.join('content', 'mnt', 'My Drive', 'Colab Notebooks', 'DeepCV_Packages'))
     
     # for compatibility with densenet original functions
     config.model.growth_rate = growth_rate
@@ -294,7 +296,7 @@ def densenet121_u_lidar(pretrained=False, progress=True, config=None):
                     config)
 
 
-def densenet161__u_lidar(pretrained=False, progress=True, config=None):
+def densenet161_u_lidar(pretrained=False, progress=True, config=None):
     r"""Densenet-161 model from
     `"Densely Connected Convolutional Networks" <https://arxiv.org/pdf/1608.06993.pdf>`_
     Args:
