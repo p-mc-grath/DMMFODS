@@ -146,11 +146,11 @@ def _create_ground_truth_bb_pedestrian(ground_truth_box):
     height_fraction = height//5
     width_fraction = width//4
 
-    ground_truth_box[0, 0, 0:height_fraction,:width_fraction] = unlikely
-    ground_truth_box[0, 0, 0:height_fraction,width_fraction*3:] = unlikely
-    ground_truth_box[0, 0, height_fraction*3:,:width_fraction] = uncertain
-    ground_truth_box[0, 0, height_fraction*3:,width_fraction*3:] = uncertain
-    ground_truth_box[0, 0, height_fraction*3:,width_fraction:width_fraction*3] = half_certain
+    ground_truth_box[0, 0:height_fraction,:width_fraction] = unlikely
+    ground_truth_box[0, 0:height_fraction,width_fraction*3:] = unlikely
+    ground_truth_box[0, height_fraction*3:,:width_fraction] = uncertain
+    ground_truth_box[0, height_fraction*3:,width_fraction*3:] = uncertain
+    ground_truth_box[0, height_fraction*3:,width_fraction:width_fraction*3] = half_certain
 
     return ground_truth_box
 
@@ -162,7 +162,7 @@ def _create_ground_truth_bb_vehicle(ground_truth_box):
 
 def _create_ground_truth_bb(object_class, width, height):     
     
-    ground_truth_box = np.ones((1, 1, height, width))
+    ground_truth_box = np.ones((1, height, width))
 
     # object_class number association corresponding to waymo label.proto
     if object_class == 2:                                                                       # TYPE_PEDESTRIAN
@@ -185,7 +185,7 @@ def create_ground_truth_maps(ground_truth, width_img=1920, height_img=1280):
         width_img:  of original!! image
         height_img: of original!! image
     '''
-    maps = np.zeros((1, 3, height_img, width_img))
+    maps = np.zeros((3, height_img, width_img))
     
     for elem in ground_truth.values():
         
@@ -198,7 +198,7 @@ def create_ground_truth_maps(ground_truth, width_img=1920, height_img=1280):
 
             obj_idx = (object_class==1)*0+(object_class==2)*1+(object_class==4)*2               # remapping obj identifying indeces
 
-            maps[0, obj_idx, y:y+height_bb, x:x+width_bb] = _create_ground_truth_bb(object_class, width_bb, height_bb)
+            maps[obj_idx, y:y+height_bb, x:x+width_bb] = _create_ground_truth_bb(object_class, width_bb, height_bb)
         
     return torch.Tensor(maps)     
 
@@ -259,13 +259,13 @@ def pool_range_tensor(range_tensor):
 
     return range_tensor
 
-def lidar_array_to_image_like_tensor(lidar_array, shape=(1,1,1280,1920)):
+def lidar_array_to_image_like_tensor(lidar_array, shape=(1,1280,1920)):
     '''
     read out lidar array into image with one channel = distance values
     '''
     range_tensor = torch.zeros(shape)
     for [x, y, d] in lidar_array:
-        range_tensor[0,0,int(y),int(x)] = d.item()                                              # tensor does not accept np.float32
+        range_tensor[0,int(y),int(x)] = d.item()                                              # tensor does not accept np.float32
     
     return range_tensor
 
@@ -388,8 +388,7 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
                     continue
                 
                 ### retrieve, convert and save rgb data 
-                np_img = np.moveaxis(tf.image.decode_jpeg(image.image).numpy(), -1, 0)      # frame -> np array with tensor like dims: channels,y,x
-                img_tensor = torch.Tensor(np_img).unsqueeze(0)                              # np array -> torch Tensor: add batch size as first dim      
+                np_img = np.moveaxis(tf.image.decode_jpeg(image.image).numpy(), -1, 0)      # frame -> np array with tensor like dims: channels,y,x      
                 img_filename = 'img_%d_%d_%d_%d' %(idx_dataset_batch, idx_entry, idx_data, idx_img) 
                 torch.save(img_tensor, os.path.join(save_path_images, img_filename))                     
                 
