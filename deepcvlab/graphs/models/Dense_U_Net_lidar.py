@@ -266,9 +266,9 @@ def _load_state_dict(model, config, model_url, progress):
 
 def _dense_u_net_lidar(arch, growth_rate, block_config, num_init_features, pretrained, progress,
             config):
-    #if config is None:
+    if config is None:
         # TODO rmv; here only for testing convenience
-        #config = get_config(os.path.join('content', 'mnt', 'My Drive', 'Colab Notebooks', 'DeepCV_Packages'))
+        config = get_config(os.path.join('content', 'mnt', 'My Drive', 'Colab Notebooks', 'DeepCV_Packages'))
     
     # for compatibility with densenet original functions
     config.model.growth_rate = growth_rate
