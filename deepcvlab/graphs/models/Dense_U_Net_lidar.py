@@ -161,21 +161,19 @@ class Dense_U_Net_lidar(nn.Module):
                 num_features, 3, stride=2, padding=1))
             num_in_features = num_features*2
         
-        # Upscaling to original size: input (96, 64)*2*1*2*5 = (1920,1280)
+        # Upscaling to original size: input (96, 64)*2*2*5 = (1920,1280)
         self.dec_out_to_heat_maps = nn.Sequential(OrderedDict([ 
+                            ('Upsampling0', nn.Upsample(scale_factor=2)),
                             ('norm0', nn.BatchNorm2d(num_features)),
                             ('relu0', nn.ReLU(inplace=True)),
-                            ('t_conv0', nn.ConvTranspose2d(num_features, num_features, 
-                                5, stride=2, padding=2, bias=False)), 
-                            ('norm1', nn.BatchNorm2d(num_features)),
+                            ('refine0', nn.Conv2d(num_features, self.num_classes, 
+                                3, stride=1, padding=1, bias=False)), 
+                            ('Upsampling1', nn.Upsample(scale_factor=2)),
+                            ('norm1', nn.BatchNorm2d(self.num_classes)),
                             ('relu1', nn.ReLU(inplace=True)),
-                            ('reduce_channels', nn.Conv2d(num_features, self.num_classes, 
-                                1, stride=1, padding=0, bias=False)),
-                            ('norm2', nn.BatchNorm2d(self.num_classes)),
-                            ('relu2', nn.ReLU(inplace=True)),
-                            ('t_conv2', nn.ConvTranspose2d(self.num_classes, self.num_classes, 
-                                7, stride=2, padding=3, bias=False)),    
-                            ('Upsampling_Bilinear', nn.Upsample(scale_factor=5)),
+                            ('refine1', nn.Conv2d(self.num_classes, self.num_classes, 
+                                3, stride=1, padding=1, bias=False)),    
+                            ('Upsampling2', nn.Upsample(scale_factor=5)),
                             ('out_sigmoid', nn.Sigmoid())
             ]))
 
