@@ -177,8 +177,6 @@ class Dense_U_Net_lidar_Agent:
             
             # pixel-wise loss
             current_loss = self.loss(prediction, ht_map)
-            if np.isnan(float(current_loss.item())):
-                raise ValueError('Loss is nan during training...')
             epoch_loss += [epoch_loss[-1] + current_loss.item()]
 
             # backprop
@@ -227,8 +225,6 @@ class Dense_U_Net_lidar_Agent:
             
             # pixel-wise loss
             current_loss = self.loss(prediction, ht_map)
-            if np.isnan(float(current_loss.item())):
-                raise ValueError('Loss is nan during training...')
             epoch_loss += [epoch_loss[-1] + current_loss.item()]
 
         avg_val_acc = epoch_loss[-1]/len(epoch_loss) #
