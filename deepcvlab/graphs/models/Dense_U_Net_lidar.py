@@ -173,8 +173,7 @@ class Dense_U_Net_lidar(nn.Module):
                             ('relu1', nn.ReLU(inplace=True)),
                             ('refine1', nn.Conv2d(self.num_classes, self.num_classes, 
                                 3, stride=1, padding=1, bias=False)),    
-                            ('Upsampling2', nn.Upsample(scale_factor=5)),
-                            ('out_sigmoid', nn.Sigmoid())
+                            ('Upsampling2', nn.Upsample(scale_factor=5))
             ]))
 
         ### Official init from torch repo

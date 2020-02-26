@@ -36,7 +36,7 @@ class Dense_U_Net_lidar_Agent:
         self.data_loader = WaymoDataset_Loader(self.config)
 
         # pixel-wise cross-entropy loss 
-        self.loss = torch.nn.CrossEntropyLoss(reduction='none').cuda()
+        self.loss = torch.nn.BCEWithLogitsLoss(reduction='none').cuda()
         
         # optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), 
