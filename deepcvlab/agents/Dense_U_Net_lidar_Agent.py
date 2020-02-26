@@ -164,7 +164,7 @@ class Dense_U_Net_lidar_Agent:
         self.model.train()
 
         current_batch = 0
-        epoch_loss = [0]
+        epoch_loss = [torch.zeros(self.config.model.num_classes)]
         for image, lidar, _, ht_map in tqdm_batch:
             # push to gpu if possible
             if self.cuda:
@@ -177,7 +177,8 @@ class Dense_U_Net_lidar_Agent:
             
             # pixel-wise loss
             current_loss = self.loss(prediction, ht_map)
-            epoch_loss += [epoch_loss[-1] + current_loss.item()]
+            loss_per_class = torch.sum(current_loss, dim=tuple(np.arange(self.config.model.num_classes)[np.arange(self.config.model.num_classes)!=1]))
+            epoch_loss += [epoch_loss[-1] + loss_per_class]
 
             # backprop
             self.optimizer.zero_grad()
@@ -189,7 +190,7 @@ class Dense_U_Net_lidar_Agent:
             current_batch += 1
 
             # log
-            self.summary_writer.add_scalar("loss/iteration", current_loss.item(), self.current_iteration)
+            self.summary_writer.add_scalar("loss/iteration", loss_per_class, self.current_iteration)
 
         tqdm_batch.close()
 
@@ -212,7 +213,7 @@ class Dense_U_Net_lidar_Agent:
         # set the model in training mode
         self.model.eval()
 
-        epoch_loss = [0]
+        epoch_loss = [torch.zeros(self.config.model.num_classes)]
         for image, lidar, _, ht_map in tqdm_batch:
             # push to gpu if possible
             if self.cuda:
@@ -225,7 +226,8 @@ class Dense_U_Net_lidar_Agent:
             
             # pixel-wise loss
             current_loss = self.loss(prediction, ht_map)
-            epoch_loss += [epoch_loss[-1] + current_loss.item()]
+            loss_per_class = torch.sum(current_loss, dim=tuple(np.arange(self.config.model.num_classes)[np.arange(self.config.model.num_classes)!=1]))
+            epoch_loss += [epoch_loss[-1] + loss_per_class]
 
         avg_val_acc = epoch_loss[-1]/len(epoch_loss) #
         self.logger.info("Validation results at epoch-" + str(self.current_epoch) + " | " + "average loss: " + str(
