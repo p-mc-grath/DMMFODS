@@ -164,7 +164,7 @@ class Dense_U_Net_lidar_Agent:
         self.model.train()
 
         current_batch = 0
-        epoch_loss = [torch.zeros(self.config.model.num_classes)]
+        epoch_loss = [torch.zeros(self.config.model.num_classes).to(self.device)]
         for image, lidar, _, ht_map in tqdm_batch:
             # push to gpu if possible
             if self.cuda:
@@ -213,7 +213,7 @@ class Dense_U_Net_lidar_Agent:
         # set the model in training mode
         self.model.eval()
 
-        epoch_loss = [torch.zeros(self.config.model.num_classes)]
+        epoch_loss = [torch.zeros(self.config.model.num_classes).to(self.device)]
         for image, lidar, _, ht_map in tqdm_batch:
             # push to gpu if possible
             if self.cuda:
