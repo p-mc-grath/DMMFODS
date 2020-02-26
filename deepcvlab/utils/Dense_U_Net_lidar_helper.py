@@ -390,7 +390,7 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
                 ### retrieve, convert and save rgb data 
                 np_img = np.moveaxis(tf.image.decode_jpeg(image.image).numpy(), -1, 0)      # frame -> np array with tensor like dims: channels,y,x      
                 img_filename = 'img_%d_%d_%d_%d' %(idx_dataset_batch, idx_entry, idx_data, idx_img) 
-                torch.save(img_tensor, os.path.join(save_path_images, img_filename))                     
+                torch.save(torch.Tensor(np_img), os.path.join(save_path_images, img_filename))                     
                 
                 ### retrieve, convert and save lidar data
                 (range_images, camera_projections,
