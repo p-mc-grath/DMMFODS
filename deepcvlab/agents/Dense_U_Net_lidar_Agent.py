@@ -4,6 +4,7 @@ import torch
 from torch.backends import cudnn
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
+from pathlib import Path
 
 from ..graphs.models.Dense_U_Net_lidar import densenet121_u_lidar, Dense_U_Net_lidar
 from ..utils import Dense_U_Net_lidar_helper as utils
@@ -91,7 +92,10 @@ class Dense_U_Net_lidar_Agent:
         
         if is_best:
             filename = self.config.agent.best_checkpoint_name
-            
+
+        # create dir if not exists
+        Path(self.config.dir.pretrained_weights).mkdir(exist_ok=True)
+
         # Save the state
         torch.save(state, os.path.join(self.config.dir.pretrained_weights, filename))
     
