@@ -238,7 +238,7 @@ def compute_IoU_whole_img_batch(ground_truth_map_batch, estimated_heat_map_batch
     for i, (gt_map, h_map) in enumerate(zip(ground_truth_map_batch, estimated_heat_map_batch)):
         iou_per_instance_per_class[i, :] = compute_IoU_whole_img_per_class(gt_map, h_map, threshold)
 
-    return torch.mean(iou_per_instance_per_class, axis=0), iou_per_instance_per_class
+    return torch.mean(iou_per_instance_per_class, axis=0)
 
 ############################################################################
 # converting waymo tfrecord files to pytorch and helpers
