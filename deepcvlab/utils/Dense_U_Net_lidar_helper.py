@@ -215,7 +215,7 @@ def compute_IoU_whole_img_per_class(ground_truth_map, estimated_heat_map, thresh
     est_bool = estimated_heat_map >= threshold
     gt_bool = ground_truth_map >= threshold                                             # TODO alternative: == 1??
 
-    # numpy magic
+    # boolean magic
     intersection = torch.sum(est_bool & gt_bool, axis=(1,2))
     union = torch.sum(est_bool | gt_bool, axis=(1,2))
     
@@ -232,7 +232,7 @@ def compute_IoU_whole_img_batch(ground_truth_map_batch, estimated_heat_map_batch
         batches: of form: instance in batch, class, y, x
     '''
     # alocate space
-    iou_per_instance_per_class = torch.zeros(ground_truth_map_batch.shape[0], ground_truth_map_batch.shape[1]])
+    iou_per_instance_per_class = torch.zeros(ground_truth_map_batch.shape[0], ground_truth_map_batch.shape[1])
 
     # IoU per isntance
     for i, (gt_map, h_map) in enumerate(zip(ground_truth_map_batch, estimated_heat_map_batch)):
