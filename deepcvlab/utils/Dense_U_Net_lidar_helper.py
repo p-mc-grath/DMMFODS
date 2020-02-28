@@ -65,12 +65,13 @@ def create_config():
     # optimizer params; currently torch.optim.Adam default
     config['optimizer'] = {
         'type': 'Adam',
-        'learning_rate': 0.001,
+        'learning_rate': 1e-3,
         'beta1': 0.9,
         'beta2': 0.999,
         'eps': 1e-08,
         'amsgrad': False,
         'weight_decay': {
+            'value': 0,
             'every_n_epochs': 30,
             'gamma': 0.1
         }
