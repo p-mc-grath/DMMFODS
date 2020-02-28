@@ -7,7 +7,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from ..graphs.models.Dense_U_Net_lidar import densenet121_u_lidar, Dense_U_Net_lidar
-from ..utils import Dense_U_Net_lidar_helper
+from ..utils import Dense_U_Net_lidar_helper as utils
 from ..datasets.WaymoData import WaymoDataset_Loader
 
 # optimizes performance if input size same at each iteration
@@ -146,7 +146,8 @@ class Dense_U_Net_lidar_Agent:
             self.current_epoch = epoch
             self.train_one_epoch()
 
-            val_acc = self.validate()
+            avg_val_acc_per_class = self.validate()
+            val_acc = torch.mean(avg_val_acc_per_class)
             is_best = val_acc > self.best_val_acc
             if is_best:
                 self.best_val_acc = val_acc
@@ -165,6 +166,7 @@ class Dense_U_Net_lidar_Agent:
 
         current_batch = 0
         epoch_loss = [torch.zeros(self.config.model.num_classes).to(self.device)]
+        epoch_iou = [torch.zeros(self.config.model.num_classes)]
         for image, lidar, _, ht_map in tqdm_batch:
             # push to gpu if possible
             if self.cuda:
@@ -179,6 +181,10 @@ class Dense_U_Net_lidar_Agent:
             current_loss = self.loss(prediction, ht_map)
             loss_per_class = torch.sum(current_loss, dim=(0,2,3))
             epoch_loss += [epoch_loss[-1] + loss_per_class]
+
+            # whole image IoU per class
+            iou_per_class = utils.compute_IoU_whole_img_batch(prediction, ht_map, self.config.agent.iou_threshold)
+            epoch_iou += [epoch_iou[-1] + iou_per_class]
 
             # backprop
             self.optimizer.zero_grad()
@@ -190,7 +196,15 @@ class Dense_U_Net_lidar_Agent:
             current_batch += 1
 
             # log
-            self.summary_writer.add_scalar("loss/iteration", loss_per_class, self.current_iteration)
+            info_per_class_dict = {
+                'loss vehicle': loss_per_class[0],
+                'loss pedestrian': loss_per_class[1],
+                'loss cyclist': loss_per_class[2],
+                'iou vehicle': iou_per_class[0],
+                'iou pedestrian': iou_per_class[1],
+                'iou cyclist': iou_per_class[2]
+            }
+            self.summary_writer.add_scalars("loss, iou/iteration", info_per_class_dict, self.current_iteration)
 
         tqdm_batch.close()
 
@@ -198,12 +212,13 @@ class Dense_U_Net_lidar_Agent:
         self.lr_scheduler.step()
 
         self.logger.info("Training at epoch-" + str(self.current_epoch) + " | " + "average loss: " + str(
-             epoch_loss[-1]/len(epoch_loss)))
+             epoch_loss[-1]/len(epoch_loss)) + " | " + "average IoU: " + str(epoch_iou[-1]/len(epoch_iou)))
 
     def validate(self):
         """
         One epoch validation
-        :return:
+        :return: 
+            average IoU per class
         """
         # Initialize progress visualization and get batch
         # !self.data_loader.valid_loader works for both valid and test 
@@ -214,6 +229,7 @@ class Dense_U_Net_lidar_Agent:
         self.model.eval()
 
         epoch_loss = [torch.zeros(self.config.model.num_classes).to(self.device)]
+        epoch_iou = [torch.zeros(self.config.model.num_classes)]
         for image, lidar, _, ht_map in tqdm_batch:
             # push to gpu if possible
             if self.cuda:
@@ -228,14 +244,17 @@ class Dense_U_Net_lidar_Agent:
             current_loss = self.loss(prediction, ht_map)
             loss_per_class = torch.sum(current_loss, dim=(0,2,3))
             epoch_loss += [epoch_loss[-1] + loss_per_class]
-
-        avg_val_acc = epoch_loss[-1]/len(epoch_loss) #
-        self.logger.info("Validation results at epoch-" + str(self.current_epoch) + " | " + "average loss: " + str(
-            avg_val_acc))
+            
+            # whole image IoU per class
+            iou_per_class = utils.compute_IoU_whole_img_batch(prediction, ht_map, self.config.agent.iou_threshold)
+            epoch_iou += [epoch_iou[-1] + iou_per_class]
+ 
+        self.logger.info("Training at epoch-" + str(self.current_epoch) + " | " + "average loss: " + str(
+             epoch_loss[-1]/len(epoch_loss)) + " | " + "average IoU: " + str(epoch_iou[-1]/len(epoch_iou)))
 
         tqdm_batch.close()
         
-        return avg_val_acc
+        return epoch_iou[-1]/len(epoch_iou)
 
     def finalize(self):
         """
