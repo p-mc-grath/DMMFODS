@@ -94,6 +94,7 @@ def create_config():
     config['agent'] = {
         'seed': 123,                                                        # fixed random seed ensures reproducibility
         'max_epoch': 100,
+        'iou_threshold': 0.7,
         'checkpoint': {
             'epoch': 'epoch',
             'iteration': 'iteration',
@@ -203,20 +204,45 @@ def create_ground_truth_maps(ground_truth, width_img=1920, height_img=1280):
         
     return torch.Tensor(maps)     
 
-def compute_IoU_whole_img(threshold, ground_truth_map, estimated_heat_map):
+def compute_IoU_whole_img_per_class(ground_truth_map, estimated_heat_map, threshold):
     '''
     Custom Intersection over Union function 
     Due output format it is not possible to compute IoU per bounding box
+    :return:
+        IoU_per_class: special case: union == 0 -> iou=0
     '''
     # make maps boolean
     est_bool = estimated_heat_map.numpy() >= threshold
     gt_bool = ground_truth_map.numpy() >= threshold                                             # TODO alternative: == 1??
 
     # numpy magic
-    intersection = np.sum(np.logical_and(est_bool, gt_bool))
-    union = np.sum(np.logical_or(est_bool, gt_bool))
+    intersection = np.sum(np.logical_and(est_bool, gt_bool), axis=(1,2))
+    union = np.sum(np.logical_or(est_bool, gt_bool), axis=(1,2))
     
-    return intersection/union
+    # in case union is 0
+    iou_per_class = np.divide(intersection, union)
+    iou_per_class[np.isnan(iou_per_class)] = 0
+
+    return iou_per_class
+
+def compute_IoU_whole_img_batch(ground_truth_map_batch, estimated_heat_map_batch, threshold=0.7):
+    '''
+    Arguments:
+        threshold: int
+        batches: of form: instance in batch, class, y, x
+    '''
+    # alocate space
+    iou_per_instance_per_class = np.full([ground_truth_map_batch.shape[0], ground_truth_map_batch.shape[1]], np.nan)
+
+    # IoU per isntance
+    for i, (gt_map, h_map) in enumerate(zip(ground_truth_map_batch, estimated_heat_map_batch)):
+        iou_per_instance_per_class[i, :] = compute_IoU_whole_img_per_class(gt_map, h_map, threshold)
+
+    # make sure no nan values present
+    if np.any(np.isnan(iou_per_instance_per_class)):
+        raise ValueError 
+
+    return np.mean(iou_per_instance_per_class, axis=0), iou_per_instance_per_class
 
 ############################################################################
 # converting waymo tfrecord files to pytorch and helpers
