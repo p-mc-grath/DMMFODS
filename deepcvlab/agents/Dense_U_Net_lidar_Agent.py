@@ -1,6 +1,5 @@
 import os
 import logging
-import numpy as np
 import torch
 from torch.backends import cudnn
 from tensorboardX import SummaryWriter
@@ -74,13 +73,14 @@ class Dense_U_Net_lidar_Agent:
         # Tensorboard Writer
         self.summary_writer = SummaryWriter(log_dir=self.config.dir.root, comment='Dense_U_Net')
     
-    def save_checkpoint(self, filename='checkpoint.pth.tar', is_best=0):
+    def save_checkpoint(self, filename='checkpoint.pth.tar', is_best=False):
         """
         Saving the latest checkpoint of the training
         :param filename: filename which will contain the state
         :param is_best: flag is it is the best model
         :return:
         """
+        #aggregate important data
         state = {
             self.config.agent.checkpoint.epoch: self.current_epoch,
             self.config.agent.checkpoint.iteration: self.current_iteration,
@@ -88,13 +88,14 @@ class Dense_U_Net_lidar_Agent:
             self.config.agent.checkpoint.state_dict: self.model.state_dict(),
             self.config.agent.checkpoint.optimizer: self.optimizer.state_dict()
         }
-        # Save the state
+        
         if is_best:
-            torch.save(state, self.config.dir.pretrained_weights.best_checkpoint)
-        else:
-            torch.save(state, os.path.join(self.config.dir.pretrained_weights, filename))
+            filename = self.config.agent.best_checkpoint_name
+            
+        # Save the state
+        torch.save(state, os.path.join(self.config.dir.pretrained_weights, filename))
     
-    def load_checkpoint(self, filename):
+    def load_checkpoint(self, filename=None):
         '''
         load checkpoint from file
         should contain following keys: 
@@ -102,10 +103,14 @@ class Dense_U_Net_lidar_Agent:
             where state_dict is model statedict
             and optimizer is optimizer statesict
         '''
-        filename = os.path.join(self.config.dir.pretrained_weights, filename)
+        # use best if not specified
+        if filename is None:
+            filename = self.config.agent.best_checkpoint_name
+
+        filepath = os.path.join(self.config.dir.pretrained_weights, filename)
         try:
             self.logger.info("Loading checkpoint '{}'".format(filename))
-            checkpoint = torch.load(filename)
+            checkpoint = torch.load(filepath)
 
             self.current_epoch = checkpoint[self.config.agent.checkpoint.epoch]
             self.current_iteration = checkpoint[

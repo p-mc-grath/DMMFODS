@@ -101,14 +101,14 @@ def create_config():
             'best_val_acc': 'best_val_acc',
             'state_dict': 'state_dict',
             'optimizer': 'optimizer'
-        }
+        },
+        'best_checkpoint_name': 'best_checkpoint.pth.tar'
     }
 
     # create subdirs according to pytorch project template: https://github.com/moemen95/Pytorch-Project-Template/tree/4d2f7bea9819fe2e5e25153c5cc87c8b5f35f4b8
     for subdir in ['agents', 'graphs', 'utils', 'datasets', 'pretrained_weights', 'configs']:
         config['dir'][subdir] = join(config['dir']['root'], subdir)
     config['dir']['graphs'] = {'models': join(config['dir']['graphs'], 'models')}
-    config['dir']['pretrained_weights'] = {'best_checkpoint': join(config['dir']['pretrained_weights'], 'best_checkpoint.pth.tar')}
     config['dir']['data'] = {'root': join(config['dir']['root'], 'data')}                       # because config.dir.data. train,test,val also exist
 
     # directories according to distribute_data_into_train_val_test function in this script
