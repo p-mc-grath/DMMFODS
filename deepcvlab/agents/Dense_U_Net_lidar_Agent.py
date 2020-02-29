@@ -72,7 +72,8 @@ class Dense_U_Net_lidar_Agent:
             self.load_checkpoint()
 
         # Tensorboard Writer
-        self.summary_writer = SummaryWriter(log_dir=self.config.dir.root, comment='Dense_U_Net')
+        Path(self.config.dir.summary).mkdir(exist_ok=True)
+        self.summary_writer = SummaryWriter(log_dir=self.config.dir.summary, comment='Dense_U_Net')
     
     def save_checkpoint(self, filename='checkpoint.pth.tar', is_best=False):
         """
@@ -163,7 +164,7 @@ class Dense_U_Net_lidar_Agent:
             self.save_checkpoint(is_best=is_best)
 
         self.summary_writer.close()
-        
+
     def train_one_epoch(self):
         """
         One epoch training function

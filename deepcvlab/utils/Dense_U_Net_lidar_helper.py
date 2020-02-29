@@ -109,13 +109,15 @@ def create_config():
     for subdir in ['agents', 'graphs', 'utils', 'datasets', 'pretrained_weights', 'configs']:
         config['dir'][subdir] = join(config['dir']['root'], subdir)
     config['dir']['graphs'] = {'models': join(config['dir']['graphs'], 'models')}
+    
     config['dir']['data'] = {'root': join(config['dir']['root'], 'data')}                       # because config.dir.data. train,test,val also exist
-
     # directories according to distribute_data_into_train_val_test function in this script
     for mode in ['train', 'val', 'test']:
         config['dir']['data'][mode] = {}
         for datatype in config['dataset']['datatypes']:
                 config['dir']['data'][mode][datatype] = join(config['dir']['data']['root'], mode, datatype)
+
+    config['dir']['summary'] = join(config['dir']['root'], 'training_summary') 
 
     return config
 
