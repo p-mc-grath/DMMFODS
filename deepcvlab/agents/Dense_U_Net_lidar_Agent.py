@@ -162,6 +162,8 @@ class Dense_U_Net_lidar_Agent:
                 self.best_val_acc = val_acc
             self.save_checkpoint(is_best=is_best)
 
+        self.summary_writer.close()
+        
     def train_one_epoch(self):
         """
         One epoch training function
