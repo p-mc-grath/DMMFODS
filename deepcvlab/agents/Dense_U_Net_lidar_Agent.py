@@ -275,5 +275,4 @@ class Dense_U_Net_lidar_Agent:
         Save checkpoint and log
         """
         self.logger.info("Please wait while finalizing the operation.. Thank you")
-        self.save_checkpoint()
         self.summary_writer.close()
