@@ -3,7 +3,7 @@ numpy
 regex
 six
 tensorflow
-tensorboardX
+tensorboard
 torch
 torchvision
 tqdm

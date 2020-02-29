@@ -2,7 +2,7 @@ import os
 import logging
 import torch
 from torch.backends import cudnn
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from pathlib import Path
 
@@ -69,7 +69,7 @@ class Dense_U_Net_lidar_Agent:
         self.loss = self.loss.to(self.device)
 
         if not torchvision_init:
-            self.load_checkpoint(self.config.dir.pretrained_weights.best_checkpoint)
+            self.load_checkpoint()
 
         # Tensorboard Writer
         self.summary_writer = SummaryWriter(log_dir=self.config.dir.root, comment='Dense_U_Net')
@@ -127,9 +127,9 @@ class Dense_U_Net_lidar_Agent:
                 self.config.agent.checkpoint.optimizer])
 
             self.logger.info("Checkpoint loaded successfully from '{}' at (epoch {}) at (iteration {})\n"
-                             .format(self.config.checkpoint_dir, checkpoint['epoch'], checkpoint['iteration']))
+                             .format(self.config.pretrained_weights, checkpoint['epoch'], checkpoint['iteration']))
         except OSError:
-            self.logger.info("No checkpoint exists from '{}'. Skipping...".format(self.config.checkpoint_dir))
+            self.logger.info("No checkpoint exists from '{}'. Skipping...".format(self.config.pretrained_weights))
             self.logger.info("**First time to train**")
 
     def run(self):
@@ -213,7 +213,7 @@ class Dense_U_Net_lidar_Agent:
                 'iou pedestrian': iou_per_class[1],
                 'iou cyclist': iou_per_class[2]
             }
-            self.summary_writer.add_scalars("loss, iou/iteration", info_per_class_dict, self.current_iteration)
+            self.summary_writer.add_scalars("Training_Info/", info_per_class_dict, self.current_iteration)
 
         tqdm_batch.close()
 
@@ -271,5 +271,4 @@ class Dense_U_Net_lidar_Agent:
         """
         self.logger.info("Please wait while finalizing the operation.. Thank you")
         self.save_checkpoint()
-        self.summary_writer.export_scalars_to_json("{}all_scalars.json".format(self.config.dir.root))
         self.summary_writer.close()
