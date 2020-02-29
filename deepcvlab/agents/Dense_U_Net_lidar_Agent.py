@@ -1,6 +1,7 @@
 import os
 import logging
 import torch
+import warnings
 from torch.backends import cudnn
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -130,7 +131,8 @@ class Dense_U_Net_lidar_Agent:
             self.logger.info("Checkpoint loaded successfully from '{}' at (epoch {}) at (iteration {})\n"
                              .format(self.config.dir.pretrained_weights, checkpoint['epoch'], checkpoint['iteration']))
         except OSError:
-            self.logger.info("No checkpoint exists from '{}'. Skipping...".format(self.config.dir.pretrained_weights))
+            warnings.warn("No checkpoint exists from '{}'. Skipping...".format(filepath))
+            self.logger.info("No checkpoint exists from '{}'. Skipping...".format(filepath))
             self.logger.info("**First time to train**")
 
     def run(self):
