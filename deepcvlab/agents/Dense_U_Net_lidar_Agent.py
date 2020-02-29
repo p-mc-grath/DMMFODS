@@ -128,9 +128,9 @@ class Dense_U_Net_lidar_Agent:
                 self.config.agent.checkpoint.optimizer])
 
             self.logger.info("Checkpoint loaded successfully from '{}' at (epoch {}) at (iteration {})\n"
-                             .format(self.config.pretrained_weights, checkpoint['epoch'], checkpoint['iteration']))
+                             .format(self.config.dir.pretrained_weights, checkpoint['epoch'], checkpoint['iteration']))
         except OSError:
-            self.logger.info("No checkpoint exists from '{}'. Skipping...".format(self.config.pretrained_weights))
+            self.logger.info("No checkpoint exists from '{}'. Skipping...".format(self.config.dir.pretrained_weights))
             self.logger.info("**First time to train**")
 
     def run(self):
