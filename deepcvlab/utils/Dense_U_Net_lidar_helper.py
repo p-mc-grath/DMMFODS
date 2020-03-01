@@ -146,15 +146,15 @@ def _create_ground_truth_bb_pedestrian(ground_truth_box):
     uncertain = 0.5
     half_certain = 0.75
     
-    height, width = ground_truth_box.shape[2:]
+    height, width = ground_truth_box.shape
     height_fraction = height//5
     width_fraction = width//4
 
-    ground_truth_box[0, 0:height_fraction,:width_fraction] = unlikely
-    ground_truth_box[0, 0:height_fraction,width_fraction*3:] = unlikely
-    ground_truth_box[0, height_fraction*3:,:width_fraction] = uncertain
-    ground_truth_box[0, height_fraction*3:,width_fraction*3:] = uncertain
-    ground_truth_box[0, height_fraction*3:,width_fraction:width_fraction*3] = half_certain
+    ground_truth_box[0:height_fraction,:width_fraction] = unlikely
+    ground_truth_box[0:height_fraction,width_fraction*3:] = unlikely
+    ground_truth_box[height_fraction*3:,:width_fraction] = uncertain
+    ground_truth_box[height_fraction*3:,width_fraction*3:] = uncertain
+    ground_truth_box[height_fraction*3:,width_fraction:width_fraction*3] = half_certain
 
     return ground_truth_box
 
@@ -166,7 +166,7 @@ def _create_ground_truth_bb_vehicle(ground_truth_box):
 
 def _create_ground_truth_bb(object_class, width, height):     
     
-    ground_truth_box = np.ones((1, height, width))
+    ground_truth_box = np.ones((height, width))
 
     # object_class number association corresponding to waymo label.proto
     if object_class == 2:                                                                       # TYPE_PEDESTRIAN
@@ -189,7 +189,7 @@ def create_ground_truth_maps(ground_truth, width_img=1920, height_img=1280):
         width_img:  of original!! image
         height_img: of original!! image
     '''
-    maps = np.zeros((3, height_img, width_img))
+    maps = np.zeros((1, 3, height_img, width_img))
     
     for elem in ground_truth.values():
         
@@ -202,7 +202,7 @@ def create_ground_truth_maps(ground_truth, width_img=1920, height_img=1280):
 
             obj_idx = (object_class==1)*0+(object_class==2)*1+(object_class==4)*2               # remapping obj identifying indeces
 
-            maps[obj_idx, y:y+height_bb, x:x+width_bb] = _create_ground_truth_bb(object_class, width_bb, height_bb)
+            maps[0, obj_idx, y:y+height_bb, x:x+width_bb] = _create_ground_truth_bb(object_class, width_bb, height_bb)
         
     return torch.Tensor(maps)     
 
