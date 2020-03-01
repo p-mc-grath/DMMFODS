@@ -22,7 +22,7 @@ class Dense_U_Net_lidar_Agent:
         Arguments:  
             torchvision_init: boolean
                 - True:     load densenet state dict from torchvision
-                - False:    load checkpoint
+                - False:    load checkpoint; if no checkpoint just normal init
         '''
         self.logger = logging.getLogger("Agent")
 
