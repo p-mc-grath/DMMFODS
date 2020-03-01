@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import tensorflow as tf
 import json
+import warnings
 
 from easydict import EasyDict as edict
 from six.moves import cPickle as pickle
@@ -85,7 +86,8 @@ def create_config():
             '4': 'TYPE_CYCLIST'
         },
         'images': {
-            'size': (3, 1920, 1280)
+            'original.size': (3, 1920, 1280),
+            'size': (3, 192, 128)
         },
         'datatypes': ['images', 'lidar', 'labels', 'heat_maps']
     }
@@ -188,8 +190,11 @@ def create_ground_truth_maps(ground_truth, width_img=1920, height_img=1280):
                 x, y coords of upper left corner
         width_img:  of original!! image
         height_img: of original!! image
+    return:
+        to work with pytorch's batching these ground truth maps MUST NOT have
+        a BATCH DIMENSION when saved
     '''
-    maps = np.zeros((1, 3, height_img, width_img))
+    maps = np.zeros((3, height_img, width_img))
     
     for elem in ground_truth.values():
         
@@ -202,7 +207,7 @@ def create_ground_truth_maps(ground_truth, width_img=1920, height_img=1280):
 
             obj_idx = (object_class==1)*0+(object_class==2)*1+(object_class==4)*2               # remapping obj identifying indeces
 
-            maps[0, obj_idx, y:y+height_bb, x:x+width_bb] = _create_ground_truth_bb(object_class, width_bb, height_bb)
+            maps[obj_idx, y:y+height_bb, x:x+width_bb] = _create_ground_truth_bb(object_class, width_bb, height_bb)
         
     return torch.Tensor(maps)     
 
@@ -268,27 +273,54 @@ def convert_label_dicts_to_heat_maps(dir):
         tensor = create_ground_truth_maps(dict)
         torch.save(tensor, join(dir, file))
 
-def pool_range_tensor(range_tensor):
+def maxpool_tensor(img_tensor):
     '''
-    unused
-    downsizing WxH while preserving 99.9% of the values
-    i.e. making feature maps more dense
-        WxH         lidar:zeros   lidar points absolute     iteration
-    --> 1920x1280:  1:150         16159                     ORIGINAL 
-    --> 640x960:    1:38          16128                     0
-    --> 320x480:    1:10          16004                     1
+    save storage space by downsizing images
     '''
-    max_pool = torch.nn.MaxPool2d(2, stride=2)                                                  # consider (3, stride=2, padding=1) for more dense feature maps while downsampling WxH
-    for _ in range(2):
-        range_tensor = max_pool(range_tensor)
+    max_pool = torch.nn.MaxPool2d(10, stride=10)                                               
+    return max_pool(img_tensor)
 
-    return range_tensor
+def pool_lidar_tensor(lidar_tensor):
+    '''
+    THOUGHTS
+    (1) if maxpool need to somehow invert lidar points
+    -> we are more interested in the close points!!
+    (2) Inversion on log scale because the closer the more important small diffs
+    (3) pooling: receptive field > stride -> getting rid of zero values 
+    
+    SOLUTION
+    linear bins but more bins for close range
+    inversion such that
+    0 -> 255
+    25 -> 100
+    75 -> 0
+    '''
+    # make sure all vecs are in [0,75] as specified by waymo
+    lidar_max_range=75.0
+    lidar_tensor[lidar_tensor==-1.0] = lidar_max_range+1
+
+    # 155 bins for meters [0,25]; 25m is cutoff/ truncation value for 4 short-range lidar sensors 
+    lidar_tensor[lidar_tensor<=25] = lidar_tensor[lidar_tensor<=25]*-4+255
+
+    # 100 bins for meters (25,75]; 75m is cutoff/ truncation value for single mid-range lidar sensor
+    lidar_tensor[lidar_tensor>25] = lidar_tensor[lidar_tensor>25]*-2+150
+    
+    # apply max pooling
+    pool = torch.nn.MaxPool2d(15, stride=10)
+    lidar_tensor = pool(lidar_tensor)
+
+    # check if any "0" values passed
+    if torch.any(lidar_tensor<0):
+        warnings.warn(str(torch.sum(lidar_tensor<0)) + ' init values slipped during lidar pooling')
+        lidar_tensor[lidar_tensor<0] = 0
+
+    return lidar_tensor
 
 def lidar_array_to_image_like_tensor(lidar_array, shape=(1,1280,1920)):
     '''
     read out lidar array into image with one channel = distance values
     '''
-    range_tensor = torch.zeros(shape)
+    range_tensor = torch.ones(shape)*-1.0
     for [x, y, d] in lidar_array:
         range_tensor[0,int(y),int(x)] = d.item()                                              # tensor does not accept np.float32
     
@@ -414,8 +446,9 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
                 
                 ### retrieve, convert and save rgb data 
                 np_img = np.moveaxis(tf.image.decode_jpeg(image.image).numpy(), -1, 0)      # frame -> np array with tensor like dims: channels,y,x      
-                img_filename = 'img_%d_%d_%d_%d' %(idx_dataset_batch, idx_entry, idx_data, idx_img) 
-                torch.save(torch.Tensor(np_img), os.path.join(save_path_images, img_filename))                     
+                downsized_img_tensor = maxpool_tensor(torch.Tensor(np_img)) 
+                img_filename = 'img_%d_%d_%d_%d' %(idx_dataset_batch, idx_entry, idx_data, idx_img)
+                torch.save(downsized_img_tensor, os.path.join(save_path_images, img_filename))                     
                 
                 ### retrieve, convert and save lidar data
                 (range_images, camera_projections,
@@ -428,8 +461,9 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
                                         range_image_top_pose)
                 lidar_array = extract_lidar_array_from_point_cloud(points, cp_points)       # lidar corresponds to image due to the mask in this function
                 range_tensor = lidar_array_to_image_like_tensor(lidar_array)
+                downsized_range_tensor = pool_lidar_tensor(range_tensor) 
                 lidar_filename = 'lidar_' + img_filename
-                torch.save(range_tensor, os.path.join(save_path_lidar, lidar_filename))
+                torch.save(downsized_range_tensor, os.path.join(save_path_lidar, lidar_filename))
 
                 ### retrieve, convert and save labels 
                 label_dict = {}                                                             # dict of dicts
@@ -452,7 +486,8 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
                 ### create ground truth maps from labels and save
                 heat_map_filename = 'heat_map_' + img_filename
                 heat_map = create_ground_truth_maps(label_dict)
-                torch.save(heat_map, os.path.join(save_path_heat_maps, heat_map_filename))
+                downsized_heat_map = maxpool_tensor(heat_map)
+                torch.save(downsized_heat_map, os.path.join(save_path_heat_maps, heat_map_filename))
                 
                 want_small_dataset_for_testing = False
                 if idx_data == 9 and want_small_dataset_for_testing:
