@@ -453,8 +453,7 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
                 heat_map_filename = 'heat_map_' + img_filename
                 heat_map = create_ground_truth_maps(label_dict)
                 torch.save(heat_map, os.path.join(save_path_heat_maps, heat_map_filename))
-
-                #TODO rmv
-                if idx_data == 9:
+                
+                want_small_dataset_for_testing = False
+                if idx_data == 9 and want_small_dataset_for_testing:
                     return 1 
-    return 0 #TODO rmv
