@@ -282,6 +282,10 @@ def maxpool_tensor(img_tensor):
 
 def pool_lidar_tensor(lidar_tensor):
     '''
+    Waymo data set cut-off ranges:
+    (1) 25m is the truncation value for 4 short-range lidar sensors 
+    (2) 75m is the truncation value for the single mid-range lidar sensor
+
     THOUGHTS
     (1) if maxpool need to somehow invert lidar points
     -> we are more interested in the close points!!
@@ -299,14 +303,14 @@ def pool_lidar_tensor(lidar_tensor):
     lidar_max_range=75.0
     lidar_tensor[lidar_tensor==-1.0] = lidar_max_range+1
 
-    # 155 bins for meters [0,25]; 25m is cutoff/ truncation value for 4 short-range lidar sensors 
+    # 155 bins for meters [0,25]; 
     lidar_tensor[lidar_tensor<=25] = lidar_tensor[lidar_tensor<=25]*-4+255
 
-    # 100 bins for meters (25,75]; 75m is cutoff/ truncation value for single mid-range lidar sensor
+    # 100 bins for meters (25,75]; 
     lidar_tensor[lidar_tensor>25] = lidar_tensor[lidar_tensor>25]*-2+150
     
     # apply max pooling
-    pool = torch.nn.MaxPool2d(15, stride=10)
+    pool = torch.nn.MaxPool2d(10, stride=10)
     lidar_tensor = pool(lidar_tensor)
 
     # check if any "0" values passed
@@ -489,6 +493,7 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
                 downsized_heat_map = maxpool_tensor(heat_map)
                 torch.save(downsized_heat_map, os.path.join(save_path_heat_maps, heat_map_filename))
                 
-                want_small_dataset_for_testing = False
+                want_small_dataset_for_testing = True
                 if idx_data == 9 and want_small_dataset_for_testing:
                     return 1 
+        print(idx_data, ' IMAGES PROCESSED')
