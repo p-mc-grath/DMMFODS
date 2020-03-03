@@ -198,6 +198,7 @@ class Dense_U_Net_lidar(nn.Module):
 
         # encoding
         lidar_features = self.lidar_features(lidar_data)
+        features = rgb_data
         for i, enc_module in enumerate(self.features): 
             # enc
             features = enc_module(features)  
