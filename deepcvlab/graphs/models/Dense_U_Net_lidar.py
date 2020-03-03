@@ -219,7 +219,7 @@ class Dense_U_Net_lidar(nn.Module):
         # decoding; ugly quick and dirty implementation 
         for i, dec_module in enumerate(self.decoder):
             if not isinstance(dec_module, nn.ConvTranspose2d):                                      # sequence without TransposedConv
-                if i > 0:                                                                           # concat upsampled data and data from encoder
+                if i > 0 and not isinstance(dec_module, nn.Upsample):                                                                           # concat upsampled data and data from encoder
                     features = torch.cat((features, features_from_enc_stack.pop()), 1)
                 features = dec_module(features)
             else:                                                                                   # TransposedConv
