@@ -313,7 +313,7 @@ def pool_lidar_tensor(lidar_tensor):
         (lidar_tensor>25)&(lidar_tensor<=lidar_max_range+1)]*-2+150
     
     # apply max pooling
-    pool = torch.nn.MaxPool2d(10, stride=10)
+    pool = torch.nn.MaxPool2d((20,10), stride=(10,10))
     lidar_tensor = pool(lidar_tensor)
 
     # if any init values passed, set to 0
@@ -321,13 +321,26 @@ def pool_lidar_tensor(lidar_tensor):
 
     return lidar_tensor
 
-def lidar_array_to_image_like_tensor(lidar_array, shape=(1,1280,1920)):
+def lidar_array_to_image_like_tensor(lidar_array, shape=(1,1280,1920), kernel_size=5):
     '''
     read out lidar array into image with one channel = distance values
+    allow splatting values to surrounding pixels
     '''
+    shift = (kernel_size-1)//2
+
     range_tensor = torch.ones(shape)*-1.0
     for [x, y, d] in lidar_array:
-        range_tensor[0,int(y),int(x)] = d.item()                                              # tensor does not accept np.float32
+
+        min_y = int(y-shift)
+        if min_y<0: min_y=0
+        max_y = int(y+shift+1)
+        if max_y>shape[1]-1: max_y=shape[1]-1
+        min_x = int(x-shift)
+        if min_x<0: min_x=0
+        max_x = int(x+shift+1)
+        if max_x>shape[2]-1: max_x=shape[2]-1
+
+        range_tensor[0,min_y:max_y,min_x:max_x] = d.item()                                              # tensor does not accept np.float32
     
     return range_tensor
 
@@ -497,4 +510,4 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
                 want_small_dataset_for_testing = True
                 if idx_data == 9 and want_small_dataset_for_testing:
                     return 1 
-        print(idx_data, ' IMAGES PROCESSED')
+        print(idx_data+1, ' IMAGES PROCESSED')
