@@ -295,28 +295,29 @@ def pool_lidar_tensor(lidar_tensor):
     SOLUTION
     linear bins but more bins for close range
     inversion such that
+    empty values -> 255 | TODO change?
     0 -> 255
     25 -> 100
     75 -> 0
     '''
     # make sure all vecs are in [0,75] as specified by waymo
     lidar_max_range=75.0
-    lidar_tensor[lidar_tensor==-1.0] = lidar_max_range+1
+    lidar_tensor[lidar_tensor>lidar_max_range] = lidar_max_range                # clipping not consequent; some vals 76.x
+    lidar_tensor[lidar_tensor==-1.0] = lidar_max_range+1                        # results in negative values after inversion
 
-    # 155 bins for meters [0,25]; 
-    lidar_tensor[lidar_tensor<=25] = lidar_tensor[lidar_tensor<=25]*-4+255
+    # 155 bins for meters [0,25]; converted to [100,255]
+    lidar_tensor[lidar_tensor<=25] = lidar_tensor[lidar_tensor<=25]*-6.2+255
 
-    # 100 bins for meters (25,75]; 
-    lidar_tensor[lidar_tensor>25] = lidar_tensor[lidar_tensor>25]*-2+150
+    # 100 bins for meters (25,75]; converted [0,100)
+    lidar_tensor[(lidar_tensor>25)&(lidar_tensor<=lidar_max_range+1)] = lidar_tensor[
+        (lidar_tensor>25)&(lidar_tensor<=lidar_max_range+1)]*-2+150
     
     # apply max pooling
     pool = torch.nn.MaxPool2d(10, stride=10)
     lidar_tensor = pool(lidar_tensor)
 
-    # check if any "0" values passed
-    if torch.any(lidar_tensor<0):
-        warnings.warn(str(torch.sum(lidar_tensor<0)) + ' init values slipped during lidar pooling')
-        lidar_tensor[lidar_tensor<0] = 0
+    # if any init values passed, set to 0
+    lidar_tensor[lidar_tensor<0] = 0
 
     return lidar_tensor
 
