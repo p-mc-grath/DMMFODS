@@ -24,10 +24,10 @@ def create_config():
     put into python for convenience with directories
     '''
 
-    # root dir
+    # overall root dir
     config = {
         'dir': {
-            'root': '/content/drive/My Drive/Colab Notebooks/DeepCV_Packages/DeepCVLab/deepcvlab'
+            'hosting': '/content/drive/My Drive/Colab Notebooks/DeepCV_Packages'
         }
     }
 
@@ -108,11 +108,12 @@ def create_config():
     }
 
     # create subdirs according to pytorch project template: https://github.com/moemen95/Pytorch-Project-Template/tree/4d2f7bea9819fe2e5e25153c5cc87c8b5f35f4b8
+    config['dir']['root'] = join(config['dir']['hosting'], 'DeepCVLab', 'deepcvlab')
     for subdir in ['agents', 'graphs', 'utils', 'datasets', 'pretrained_weights', 'configs']:
         config['dir'][subdir] = join(config['dir']['root'], subdir)
     config['dir']['graphs'] = {'models': join(config['dir']['graphs'], 'models')}
     
-    config['dir']['data'] = {'root': join(config['dir']['root'], 'data')}                       # because config.dir.data. train,test,val also exist
+    config['dir']['data'] = {'root': join(config['dir']['hosting'], 'data')}                       # because config.dir.data. train,test,val also exist
     # directories according to distribute_data_into_train_val_test function in this script
     for mode in ['train', 'val', 'test']:
         config['dir']['data'][mode] = {}
