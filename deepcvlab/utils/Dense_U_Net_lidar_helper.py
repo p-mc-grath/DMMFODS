@@ -270,8 +270,8 @@ def convert_label_dicts_to_heat_maps(dir):
     '''
     files = listdir(dir) 
     for file in files:
-        dict = load_dict(join(dir, file))
-        tensor = create_ground_truth_maps(dict)
+        label_dict = load_dict(join(dir, file))
+        tensor = create_ground_truth_maps(label_dict)
         torch.save(tensor, join(dir, file))
 
 def maxpool_tensor(img_tensor):
@@ -508,7 +508,7 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
                 downsized_heat_map = maxpool_tensor(heat_map)
                 torch.save(downsized_heat_map, os.path.join(save_path_heat_maps, heat_map_filename))
                 
-                want_small_dataset_for_testing = True
+                want_small_dataset_for_testing = False
                 if idx_data == 9 and want_small_dataset_for_testing:
                     return 1 
         print(idx_data+1, ' IMAGES PROCESSED')
