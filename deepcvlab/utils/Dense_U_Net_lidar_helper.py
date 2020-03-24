@@ -367,7 +367,7 @@ def extract_lidar_array_from_point_cloud(points, cp_points):
 
     return lidar_array
 
-def distribute_data_into_train_val_test(split, config=None):
+def distribute_data_into_train_val_test(split, data_root=None, config=None):
     '''
     reason: colab might disconnect during training; better have hard separation of data subsets!
 
@@ -384,8 +384,11 @@ def distribute_data_into_train_val_test(split, config=None):
     if config is None:
         config = get_config()
 
+    if data_root is None:
+        data_root = config.dir.data.root
+
     # same indices for all subdirs
-    num_samples = len(listdir(os.path.join(config.dir.data.root, 'images')))
+    num_samples = len(listdir(os.path.join(data_root, 'images')))
     indices = list(range(0, num_samples))
     np.random.shuffle(indices)
     
@@ -394,11 +397,11 @@ def distribute_data_into_train_val_test(split, config=None):
     split_indices = [0, int(split[0]), int(split[0]+split[1]), num_samples] 
         
     for data_type in config.dataset.datatypes: 
-        old_path = os.path.join(config.dir.data.root, data_type)
+        old_path = os.path.join(data_root, data_type)
         filenames = listdir(old_path)
 
         for set_idx, sub_dir in enumerate(['train', 'val', 'test']):
-            new_path = os.path.join(config.dir.data.root, sub_dir, data_type)
+            new_path = os.path.join(data_root, sub_dir, data_type)
             Path(new_path).mkdir(parents=True, exist_ok=True)
 
             for file_idx in indices[split_indices[set_idx]:split_indices[set_idx+1]]:
@@ -407,7 +410,7 @@ def distribute_data_into_train_val_test(split, config=None):
 
         Path(old_path).rmdir()
         
-def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
+def waymo_to_pytorch_offline(data_root=None, idx_dataset_batch=-1):
     '''
     Converts tfrecords from waymo open data set to
     (1) Images -> torch Tensor
@@ -425,11 +428,11 @@ def waymo_to_pytorch_offline(config=None, idx_dataset_batch=-1):
     tf.compat.v1.enable_eager_execution()
 
     # get config
-    if config is None:
+    if data_root is None:
         config = get_config()
+        data_root = config.dir.data.root
 
     # dir names
-    data_root = config.dir.data.root
     save_path_labels = os.path.join(data_root, 'labels')
     save_path_images = os.path.join(data_root, 'images')
     save_path_lidar = os.path.join(data_root, 'lidar')
