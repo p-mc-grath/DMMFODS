@@ -12,15 +12,23 @@ class WaymoDataset(Dataset):
         DATA is expected to be SORTED the SAME in all dirs !!!
         '''
         super().__init__()
-        
-        root = config.dir.data[mode].__dict__
+
+        # allocation
+        self.files = {}
+        for datatype in config.dataset.datatypes:
+            self.files[datatype] = []
+
+        # data dirs
+        root = config.dir.data.root
+        subdirs = listdir(root)
 
         # filenames incl path
-        self.files = {}
-        for k in root:
-            self.files[k] = [join(root[k], file) for file in listdir(root[k])] 
-        
-        # self._check_data_integrity()
+        for subdir in subdirs:
+            for datatype in config.dataset.datatypes:
+                current_dir = join(root, subdir, mode, datatype)
+                self.files[datatype] = self.files[datatype] + [join(current_dir, file) for file in listdir(current_dir)]
+
+        self._check_data_integrity()
 
     def __getitem__(self, idx):
         '''
@@ -43,12 +51,11 @@ class WaymoDataset(Dataset):
     def _check_data_integrity(self):
         '''
         check if names match as expected
-        TODO does not work; names are whole paths not filenames only!!
         '''
         for i in range(self.__len__()):
-            assert self.files['lidar'][i].endswith(self.files['images'][i]), self.files['lidar'][i] + ' ' + self.files['images'][i]
-            assert self.files['labels'][i].endswith(self.files['images'][i]), self.files['labels'][i] + ' ' + self.files['images'][i]
-            assert self.files['heat_maps'][i].endswith(self.files['images'][i]), self.files['heat_maps'][i] + ' ' + self.files['images'][i]
+            assert self.files['lidar'][i].endswith(self.files['images'][i][-11:]), self.files['lidar'][i] + ' ' + self.files['images'][i]
+            assert self.files['labels'][i].endswith(self.files['images'][i][-11:]), self.files['labels'][i] + ' ' + self.files['images'][i]
+            assert self.files['heat_maps'][i].endswith(self.files['images'][i][-11:]), self.files['heat_maps'][i] + ' ' + self.files['images'][i]
 
 class WaymoDataset_Loader:
 

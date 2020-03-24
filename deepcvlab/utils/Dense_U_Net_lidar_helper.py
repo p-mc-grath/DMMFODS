@@ -114,11 +114,15 @@ def create_config():
     config['dir']['graphs'] = {'models': join(config['dir']['graphs'], 'models')}
     
     config['dir']['data'] = {'root': join(config['dir']['hosting'], 'data')}                       # because config.dir.data. train,test,val also exist
+
+    '''
     # directories according to distribute_data_into_train_val_test function in this script
+    # not used as their have to be multiple data roots due to colab restrictions
     for mode in ['train', 'val', 'test']:
         config['dir']['data'][mode] = {}
         for datatype in config['dataset']['datatypes']:
                 config['dir']['data'][mode][datatype] = join(config['dir']['data']['root'], mode, datatype)
+    '''
 
     config['dir']['summary'] = join(config['dir']['root'], 'training_summary') 
 
