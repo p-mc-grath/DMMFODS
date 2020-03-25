@@ -1,7 +1,7 @@
 import torch
 import pickle
 from os import listdir
-from os.path import join
+from os.path import join, isdir
 from torch.utils.data import Dataset, DataLoader
 from ..utils.Dense_U_Net_lidar_helper import load_dict
 
@@ -26,9 +26,11 @@ class WaymoDataset(Dataset):
         for subdir in subdirs:
             for datatype in config.dataset.datatypes:
                 current_dir = join(root, subdir, mode, datatype)
-                self.files[datatype] = self.files[datatype] + [join(current_dir, file) for file in listdir(current_dir)]
+                if isdir(current_dir):
+                    self.files[datatype] = self.files[datatype] + [join(current_dir, file) for file in listdir(current_dir)]
 
         self._check_data_integrity()
+        print('Your dataset consists of %d images' %len(self.files['images']))
 
     def __getitem__(self, idx):
         '''
