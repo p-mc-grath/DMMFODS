@@ -318,11 +318,16 @@ def pool_lidar_tensor(lidar_tensor):
         (lidar_tensor>25)&(lidar_tensor<=lidar_max_range+1)]*-2+150
     
     # apply max pooling
-    pool = torch.nn.MaxPool2d((20,10), stride=(10,10))
-    lidar_tensor = pool(lidar_tensor)
+    max_pool = torch.nn.MaxPool2d((20,10), stride=(10,10))
+    lidar_tensor = max_pool(lidar_tensor)
+    
+    # pad such that shape = (1,128,192)| necessary due to maxpool filter size (20,10)
+    lidar_tensor = torch.nn.functional.pad(lidar_tensor.unsqueeze(0), 
+                                            pad=(0,0,0,1), mode='replicate').squeeze(0)
 
     # if any init values passed, set to 0
     lidar_tensor[lidar_tensor<0] = 0
+
 
     return lidar_tensor
 
