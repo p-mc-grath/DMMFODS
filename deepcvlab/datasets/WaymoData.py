@@ -73,11 +73,13 @@ class WaymoDataset_Loader:
             self.train_loader = DataLoader(train_set, 
                 batch_size=config.loader.batch_size, 
                 num_workers=config.loader.num_workers,
-                pin_memory=config.loader.pin_memory)
+                pin_memory=config.loader.pin_memory,
+                drop_last=config.loader.drop_last)
             self.valid_loader = DataLoader(valid_set, 
                 batch_size=config.loader.batch_size,
                 num_workers=config.loader.num_workers,
-                pin_memory=config.loader.pin_memory)
+                pin_memory=config.loader.pin_memory,
+                drop_last=config.loader.drop_last)
             
             # iterations
             self.train_iterations = (len(train_set) + config.loader.batch_size) // config.loader.batch_size
@@ -92,7 +94,8 @@ class WaymoDataset_Loader:
             self.valid_loader = DataLoader(test_set, 
                 batch_size=config.loader.batch_size,
                 num_workers=config.loader.num_workers,
-                pin_memory=config.loader.pin_memory)
+                pin_memory=config.loader.pin_memory,
+                drop_last=config.loader.drop_last)
             
             # iterations
             self.valid_iterations = (len(test_set) + config.loader.batch_size) // config.loader.batch_size
