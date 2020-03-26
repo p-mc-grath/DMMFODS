@@ -29,7 +29,7 @@ class WaymoDataset(Dataset):
                     self.files[datatype] = self.files[datatype] + [join(current_dir, file) for file in listdir(current_dir)]
 
         self._check_data_integrity()
-        print('Your dataset consists of %d images' %len(self.files['images']))
+        print('Your %s dataset consists of %d images' %(mode, len(self.files['images'])))
 
     def __getitem__(self, idx):
         '''
