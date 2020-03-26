@@ -13,6 +13,11 @@ Approach:
 * Loss: each pixel can independently belong to each of the classes (vehicle, pedestrian, cyclist)
 * Lidar data projected into image like tensor with zero values where no data  
 
+Tutorial:
+1. download Colab_Setup.ipnb into your googledrive
+2. open Colab_Setup and adjust paths in first cell to your liking
+3. run the INSTALLATION and DATA sections
+4. In the first cell of TRAINING, give the path to the directory containing the directory containing the deepcvlab repo to the get_config call (I know...)
 
 Following the structure suggested by:   
 https://github.com/moemen95/Pytorch-Project-Template  
