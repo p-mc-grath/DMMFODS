@@ -17,17 +17,20 @@ from waymo_open_dataset.utils import  frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
 
 
-def create_config():
+def create_config(host_dir):
     '''
     create according to
     https://github.com/moemen95/Pytorch-Project-Template/tree/4d2f7bea9819fe2e5e25153c5cc87c8b5f35f4b8
     put into python for convenience with directories
     '''
 
+    if host_dir is None:
+        host_dir = '/content/drive/My Drive/Colab Notebooks/DeepCV_Packages'
+
     # overall root dir
     config = {
         'dir': {
-            'hosting': '/content/drive/My Drive/Colab Notebooks/DeepCV_Packages'
+            'hosting': host_dir
         }
     }
 
@@ -129,17 +132,17 @@ def create_config():
 
     return config
 
-def get_config(root=''):
+def get_config(host_dir=None):
     '''
     Using json because human readable
     '''
-    json_file = join(root, 'config', 'Dense_U_Net_lidar_config.json')
+    json_file = join(host_dir, 'config', 'Dense_U_Net_lidar_config.json')
     
     if isfile(json_file):
         with open(json_file, 'r') as config_file:
             config = json.load(config_file)                                                           # values -> attrs
     else:
-        config = create_config()
+        config = create_config(host_dir)
 
     return edict(config)
 
