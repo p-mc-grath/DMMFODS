@@ -60,7 +60,8 @@ def create_config():
         'batch_size': 32,
         'pin_memory': True,                                                 # TODO check what else has to be done
         'num_workers': 4,
-        'async_loading': True                                               # should be same as pin_memory
+        'async_loading': True,                                              # should be same as pin_memory
+        'drop_last': True
     }
 
     # optimizer params; currently torch.optim.Adam default

@@ -55,9 +55,9 @@ class WaymoDataset(Dataset):
         check if names match as expected
         '''
         for i in range(self.__len__()):
-            assert self.files['lidar'][i].endswith(self.files['images'][i][-11:]), self.files['lidar'][i] + ' ' + self.files['images'][i]
-            assert self.files['labels'][i].endswith(self.files['images'][i][-11:]), self.files['labels'][i] + ' ' + self.files['images'][i]
-            assert self.files['heat_maps'][i].endswith(self.files['images'][i][-11:]), self.files['heat_maps'][i] + ' ' + self.files['images'][i]
+            assert self.files['lidar'][i].endswith(self.files['images'][i][-11:]), str(i) + ' ' + self.files['lidar'][i] + ' ' + self.files['images'][i]
+            assert self.files['labels'][i].endswith(self.files['images'][i][-11:]), str(i) + ' ' + self.files['labels'][i] + ' ' + self.files['images'][i]
+            assert self.files['heat_maps'][i].endswith(self.files['images'][i][-11:]), str(i) + ' ' + self.files['heat_maps'][i] + ' ' + self.files['images'][i]
 
 class WaymoDataset_Loader:
 
