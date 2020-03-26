@@ -3,7 +3,6 @@ import pickle
 from os import listdir
 from os.path import join, isdir
 from torch.utils.data import Dataset, DataLoader
-from ..utils.Dense_U_Net_lidar_helper import load_dict
 
 class WaymoDataset(Dataset):
     def __init__(self, mode, config):
