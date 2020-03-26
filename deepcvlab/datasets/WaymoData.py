@@ -42,10 +42,9 @@ class WaymoDataset(Dataset):
         # load data corresponding to idx
         image = torch.load(self.files['images'][idx])    
         lidar = torch.load(self.files['lidar'][idx])
-        labels= load_dict(self.files['labels'][idx])
         ht_map= torch.load(self.files['heat_maps'][idx])
     
-        return image, lidar, labels, ht_map
+        return image, lidar, ht_map
 
     def __len__(self):
         return len(self.files['images'])
@@ -56,7 +55,6 @@ class WaymoDataset(Dataset):
         '''
         for i in range(self.__len__()):
             assert self.files['lidar'][i].endswith(self.files['images'][i][-11:]), str(i) + ' ' + self.files['lidar'][i] + ' ' + self.files['images'][i]
-            assert self.files['labels'][i].endswith(self.files['images'][i][-11:]), str(i) + ' ' + self.files['labels'][i] + ' ' + self.files['images'][i]
             assert self.files['heat_maps'][i].endswith(self.files['images'][i][-11:]), str(i) + ' ' + self.files['heat_maps'][i] + ' ' + self.files['images'][i]
 
 class WaymoDataset_Loader:
