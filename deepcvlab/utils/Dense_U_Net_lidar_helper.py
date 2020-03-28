@@ -24,7 +24,7 @@ def create_config(host_dir):
     put into python for convenience with directories
     '''
 
-    if host_dir is None:
+    if not host_dir:
         host_dir = '/content/drive/My Drive/Colab Notebooks/DeepCV_Packages'
 
     # overall root dir
@@ -132,7 +132,7 @@ def create_config(host_dir):
 
     return config
 
-def get_config(host_dir=None):
+def get_config(host_dir=''):
     '''
     Using json because human readable
     '''
