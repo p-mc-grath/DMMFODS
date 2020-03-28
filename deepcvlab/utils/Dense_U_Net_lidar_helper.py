@@ -282,6 +282,13 @@ def convert_label_dicts_to_heat_maps(dir):
         tensor = create_ground_truth_maps(label_dict)
         torch.save(tensor, join(dir, file))
 
+def avgpool_tensor(img_tensor):
+    '''
+    save storage space by downsizing images
+    '''
+    avg_pool = torch.nn.AvgPool2d(10, stride=10)                                               
+    return avg_pool(img_tensor)
+    
 def maxpool_tensor(img_tensor):
     '''
     save storage space by downsizing images
@@ -481,7 +488,7 @@ def waymo_to_pytorch_offline(data_root=None, idx_dataset_batch=-1):
                 
                 ### retrieve, convert and save rgb data 
                 np_img = np.moveaxis(tf.image.decode_jpeg(image.image).numpy(), -1, 0)      # frame -> np array with tensor like dims: channels,y,x      
-                downsized_img_tensor = maxpool_tensor(torch.Tensor(np_img)) 
+                downsized_img_tensor = avgpool_tensor(torch.Tensor(np_img)) 
                 img_filename = 'img_%d_%d_%d_%d' %(idx_dataset_batch, idx_entry, idx_data, idx_img)
                 torch.save(downsized_img_tensor, os.path.join(save_path_images, img_filename))                     
                 
