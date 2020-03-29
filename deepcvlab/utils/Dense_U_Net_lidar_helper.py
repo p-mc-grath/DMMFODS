@@ -467,7 +467,7 @@ def waymo_to_pytorch_offline(data_root='', idx_dataset_batch=-1):
 
         # skip all non tfrecord files
         tf_data_path = os.path.join(data_root, tf_dir)
-        for file in os.listdir(tf_data_path)
+        for file in os.listdir(tf_data_path):
             
             if not file.endswith('.tfrecord'):  
                 continue
