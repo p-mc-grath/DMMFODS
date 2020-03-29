@@ -19,14 +19,16 @@ class WaymoDataset(Dataset):
 
         # data dirs
         root = config.dir.data.root
-        subdirs = listdir(root)
+        waymo_buckets = listdir(root)
 
         # filenames incl path
-        for subdir in subdirs:
-            for datatype in config.dataset.datatypes:
-                current_dir = join(root, subdir, mode, datatype)
-                if isdir(current_dir):
-                    self.files[datatype] = self.files[datatype] + [join(current_dir, file) for file in listdir(current_dir)]
+        for waymo_bucket in waymo_buckets:
+            tf_data_dirs = listdir(join(root, waymo_bucket))
+            for tf_data_dir in tf_data_dirs:
+                for datatype in config.dataset.datatypes:
+                    current_dir = join(root, waymo_bucket, tf_data_dir, mode, datatype)
+                    if isdir(current_dir):
+                        self.files[datatype] = self.files[datatype] + [join(current_dir, file) for file in listdir(current_dir)]
 
         self._check_data_integrity()
         print('Your %s dataset consists of %d images' %(mode, len(self.files['images'])))
