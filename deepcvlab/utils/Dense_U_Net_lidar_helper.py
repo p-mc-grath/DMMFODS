@@ -454,7 +454,7 @@ def waymo_to_pytorch_offline(data_root='', idx_dataset_batch=-1):
     colab: there are a lot of unnessecary subdirs because of googlefilestream limitations
     '''      
     # allows __iter__() for tf record dataset
-    # tf.compat.v1.enable_eager_execution()
+    tf.compat.v1.enable_eager_execution()
 
     # get config
     if not data_root:
@@ -462,7 +462,7 @@ def waymo_to_pytorch_offline(data_root='', idx_dataset_batch=-1):
         data_root = config.dir.data.root
     
     # read all entries in data root directory
-    tf_dirs = os.listdir(data_root)
+    tf_dirs = [tfd for tfd in os.listdir(data_root) if tfd.startswith('tf_')]
     for idx_tf_dir, tf_dir in enumerate(tf_dirs):
 
         # skip all non tfrecord files
