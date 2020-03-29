@@ -399,6 +399,8 @@ def distribute_data_into_train_val_test(split, data_root='', config=None):
     Arguments:
         config: edict
         split: list: [train_percentage, val_percentage, test_percentage]
+
+    colab: there are a lot of unnessecary subdirs because of googlefilestream limitations
     '''
     # get config
     if config is None:
@@ -448,6 +450,8 @@ def waymo_to_pytorch_offline(data_root='', idx_dataset_batch=-1):
         'width':    width of corresponding bounding box     !!labeling not as in original!!
         'height':   height of corresponding bbounding box   !!labeling not as in original!!
     (4) heat_maps from labels -> torch Tensor; image like
+
+    colab: there are a lot of unnessecary subdirs because of googlefilestream limitations
     '''      
     # allows __iter__() for tf record dataset
     tf.compat.v1.enable_eager_execution()

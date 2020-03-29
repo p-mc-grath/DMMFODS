@@ -9,6 +9,8 @@ class WaymoDataset(Dataset):
         '''
         Dirs are expected to ONLY CONTAIN the respective DATA !!!
         DATA is expected to be SORTED the SAME in all dirs !!!
+
+        colab: there are a lot of unnessecary subdirs because of googlefilestream limitations
         '''
         super().__init__()
 
