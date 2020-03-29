@@ -387,7 +387,7 @@ def extract_lidar_array_from_point_cloud(points, cp_points):
 
     return lidar_array
 
-def distribute_data_into_train_val_test(split, data_root=None, config=None):
+def distribute_data_into_train_val_test(split, data_root='', config=None):
     '''
     reason: colab might disconnect during training; better have hard separation of data subsets!
 
@@ -402,35 +402,40 @@ def distribute_data_into_train_val_test(split, data_root=None, config=None):
     '''
     # get config
     if config is None:
-        config = get_config()
+        config = get_config(host_dir=data_root)
 
-    if data_root is None:
+    if not data_root:
         data_root = config.dir.data.root
 
-    # same indices for all subdirs
-    num_samples = len(listdir(os.path.join(data_root, 'images')))
-    indices = list(range(0, num_samples))
-    np.random.shuffle(indices)
-    
-    # make splits to split_indices for indices list
-    split = np.array(split)*num_samples
-    split_indices = [0, int(split[0]), int(split[0]+split[1]), num_samples] 
+    for tf_data_dir in listdir(data_root):
+
+        if not tf_data_dir.startswith('tf_'):
+            continue
         
-    for data_type in config.dataset.datatypes: 
-        old_path = os.path.join(data_root, data_type)
-        filenames = listdir(old_path)
-
-        for set_idx, sub_dir in enumerate(['train', 'val', 'test']):
-            new_path = os.path.join(data_root, sub_dir, data_type)
-            Path(new_path).mkdir(parents=True, exist_ok=True)
-
-            for file_idx in indices[split_indices[set_idx]:split_indices[set_idx+1]]:
-                filename = filenames[file_idx]
-                os.rename(os.path.join(old_path, filename), os.path.join(new_path, filename))
-
-        Path(old_path).rmdir()
+        # same indices for all subdirs
+        num_samples = len(listdir(os.path.join(data_root, tf_data_dir, 'images')))
+        indices = list(range(0, num_samples))
+        np.random.shuffle(indices)
         
-def waymo_to_pytorch_offline(data_root=None, idx_dataset_batch=-1):
+        # make splits to split_indices for indices list
+        split = np.array(split)*num_samples
+        split_indices = [0, int(split[0]), int(split[0]+split[1]), num_samples] 
+            
+        for data_type in config.dataset.datatypes: 
+            old_path = os.path.join(data_root, tf_data_dir, data_type)
+            filenames = listdir(old_path)
+
+            for set_idx, sub_dir in enumerate(['train', 'val', 'test']):
+                new_path = os.path.join(data_root, tf_data_dir, sub_dir, data_type)
+                Path(new_path).mkdir(parents=True, exist_ok=True)
+
+                for file_idx in indices[split_indices[set_idx]:split_indices[set_idx+1]]:
+                    filename = filenames[file_idx]
+                    os.rename(os.path.join(old_path, filename), os.path.join(new_path, filename))
+
+            Path(old_path).rmdir()
+            
+def waymo_to_pytorch_offline(data_root='', idx_dataset_batch=-1):
     '''
     Converts tfrecords from waymo open data set to
     (1) Images -> torch Tensor
@@ -448,21 +453,9 @@ def waymo_to_pytorch_offline(data_root=None, idx_dataset_batch=-1):
     tf.compat.v1.enable_eager_execution()
 
     # get config
-    if data_root is None:
+    if not data_root:
         config = get_config()
         data_root = config.dir.data.root
-
-    # dir names
-    save_path_labels = os.path.join(data_root, 'labels')
-    save_path_images = os.path.join(data_root, 'images')
-    save_path_lidar = os.path.join(data_root, 'lidar')
-    save_path_heat_maps = os.path.join(data_root, 'heat_maps')
-
-    # create save dirs if not exist
-    Path(save_path_labels).mkdir(exist_ok=True)
-    Path(save_path_images).mkdir(exist_ok=True)
-    Path(save_path_lidar).mkdir(exist_ok=True)
-    Path(save_path_heat_maps).mkdir(exist_ok=True)
     
     # read all entries in data root directory
     raw_dir_entries = os.listdir(data_root)
@@ -471,6 +464,20 @@ def waymo_to_pytorch_offline(data_root=None, idx_dataset_batch=-1):
         # skip all non tfrecord files
         if not entry.endswith('.tfrecord'):  
             continue
+        
+        # dir names
+        tf_data_path = os.path.join(data_root, 'tf_'+str(idx_entry))
+        save_path_labels = os.path.join(tf_data_path, 'labels')
+        save_path_images = os.path.join(tf_data_path, 'images')
+        save_path_lidar = os.path.join(tf_data_path, 'lidar')
+        save_path_heat_maps = os.path.join(tf_data_path, 'heat_maps')
+
+        # create save dirs if not exist
+        Path(tf_data_path).mkdir(exist_ok=True)
+        Path(save_path_labels).mkdir(exist_ok=True)
+        Path(save_path_images).mkdir(exist_ok=True)
+        Path(save_path_lidar).mkdir(exist_ok=True)
+        Path(save_path_heat_maps).mkdir(exist_ok=True)
 
         dataset = tf.data.TFRecordDataset(os.path.join(data_root, entry), compression_type='')           # read tfrecord
 
