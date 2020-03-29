@@ -462,87 +462,88 @@ def waymo_to_pytorch_offline(data_root='', idx_dataset_batch=-1):
         data_root = config.dir.data.root
     
     # read all entries in data root directory
-    raw_dir_entries = os.listdir(data_root)
-    for idx_entry, entry in enumerate(raw_dir_entries):
+    tf_dirs = os.listdir(data_root)
+    for idx_tf_dir, tf_dir in enumerate(tf_dirs):
 
         # skip all non tfrecord files
-        if not entry.endswith('.tfrecord'):  
-            continue
+        tf_data_path = os.path.join(data_root, tf_dir)
+        for file in os.listdir(tf_data_path)
+            
+            if not file.endswith('.tfrecord'):  
+                continue
         
-        # dir names
-        tf_data_path = os.path.join(data_root, 'tf_'+str(idx_entry))
-        save_path_labels = os.path.join(tf_data_path, 'labels')
-        save_path_images = os.path.join(tf_data_path, 'images')
-        save_path_lidar = os.path.join(tf_data_path, 'lidar')
-        save_path_heat_maps = os.path.join(tf_data_path, 'heat_maps')
+            # dir names
+            save_path_labels = os.path.join(tf_data_path, 'labels')
+            save_path_images = os.path.join(tf_data_path, 'images')
+            save_path_lidar = os.path.join(tf_data_path, 'lidar')
+            save_path_heat_maps = os.path.join(tf_data_path, 'heat_maps')
 
-        # create save dirs if not exist
-        Path(tf_data_path).mkdir(exist_ok=True)
-        Path(save_path_labels).mkdir(exist_ok=True)
-        Path(save_path_images).mkdir(exist_ok=True)
-        Path(save_path_lidar).mkdir(exist_ok=True)
-        Path(save_path_heat_maps).mkdir(exist_ok=True)
+            # create save dirs if not exist
+            Path(save_path_labels).mkdir(exist_ok=True)
+            Path(save_path_images).mkdir(exist_ok=True)
+            Path(save_path_lidar).mkdir(exist_ok=True)
+            Path(save_path_heat_maps).mkdir(exist_ok=True)
 
-        dataset = tf.data.TFRecordDataset(os.path.join(data_root, entry), compression_type='')           # read tfrecord
+            dataset = tf.data.TFRecordDataset(os.path.join(data_root, tf_dir, file), compression_type='')           # read tfrecord
 
-        # for all datasets stored in tfrecord
-        for idx_data, data in enumerate(dataset):
-            frame = open_dataset.Frame()
-            frame.ParseFromString(bytearray(data.numpy()))                                  # pass data from tfrecord to frame
+            # for all datasets stored in tfrecord
+            for idx_data, data in enumerate(dataset):
+                frame = open_dataset.Frame()
+                frame.ParseFromString(bytearray(data.numpy()))                                  # pass data from tfrecord to frame
 
-            # for all images of current frame
-            for idx_img, image in enumerate(frame.images):                                  # can probably reduce this + next if to: image = frame.images[0]
-                
-                # Only consider FRONT images
-                if image.name != 1:                                                         # if not CameraName == FRONT: skip; best lidar, rgb match
-                    continue
-                
-                ### retrieve, convert and save rgb data 
-                np_img = np.moveaxis(tf.image.decode_jpeg(image.image).numpy(), -1, 0)      # frame -> np array with tensor like dims: channels,y,x      
-                downsized_img_tensor = avgpool_tensor(torch.Tensor(np_img)) 
-                img_filename = 'img_%d_%d_%d_%d' %(idx_dataset_batch, idx_entry, idx_data, idx_img)
-                torch.save(downsized_img_tensor, os.path.join(save_path_images, img_filename))                     
-                
-                ### retrieve, convert and save lidar data
-                (range_images, camera_projections,
-                    range_image_top_pose) = frame_utils.parse_range_image_and_camera_projection(
-                                        frame)
-                points, cp_points = frame_utils.convert_range_image_to_point_cloud(
-                                        frame,
-                                        range_images,
-                                        camera_projections,
-                                        range_image_top_pose)
-                lidar_array = extract_lidar_array_from_point_cloud(points, cp_points)       # lidar corresponds to image due to the mask in this function
-                range_tensor = lidar_array_to_image_like_tensor(lidar_array)
-                downsized_range_tensor = pool_lidar_tensor(range_tensor) 
-                lidar_filename = 'lidar_' + img_filename
-                torch.save(downsized_range_tensor, os.path.join(save_path_lidar, lidar_filename))
-
-                ### retrieve, convert and save labels 
-                label_dict = {}                                                             # dict of dicts
-                labels_filename = 'labels_' + img_filename
-                for camera_labels in frame.camera_labels:
-                    # ignore labels corresponding to other images
-                    if camera_labels.name != image.name:
+                # for all images of current frame
+                for idx_img, image in enumerate(frame.images):                                  # can probably reduce this + next if to: image = frame.images[0]
+                    
+                    # Only consider FRONT images
+                    if image.name != 1:                                                         # if not CameraName == FRONT: skip; best lidar, rgb match
                         continue
-                    # for all labels
-                    for idx_label, label in enumerate(camera_labels.labels):
-                        label_dict[str(idx_label)] = {                                      
-                            'type':label.type,                                              # weird waymo labeling
-                            'x':int(label.box.center_x - 0.5*label.box.length),
-                            'y':int(label.box.center_y - 0.5*label.box.width),
-                            'height':int(label.box.width),
-                            'width':int(label.box.length)
-                        }
-                save_dict(label_dict, os.path.join(save_path_labels, labels_filename))
+                    
+                    ### retrieve, convert and save rgb data 
+                    np_img = np.moveaxis(tf.image.decode_jpeg(image.image).numpy(), -1, 0)      # frame -> np array with tensor like dims: channels,y,x      
+                    downsized_img_tensor = avgpool_tensor(torch.Tensor(np_img)) 
+                    img_filename = 'img_%d_%d_%d_%d' %(idx_dataset_batch, idx_tf_dir, idx_data, idx_img)
+                    torch.save(downsized_img_tensor, os.path.join(save_path_images, img_filename))                     
+                    
+                    ### retrieve, convert and save lidar data
+                    (range_images, camera_projections,
+                        range_image_top_pose) = frame_utils.parse_range_image_and_camera_projection(
+                                            frame)
+                    points, cp_points = frame_utils.convert_range_image_to_point_cloud(
+                                            frame,
+                                            range_images,
+                                            camera_projections,
+                                            range_image_top_pose)
+                    lidar_array = extract_lidar_array_from_point_cloud(points, cp_points)       # lidar corresponds to image due to the mask in this function
+                    range_tensor = lidar_array_to_image_like_tensor(lidar_array)
+                    downsized_range_tensor = pool_lidar_tensor(range_tensor) 
+                    lidar_filename = 'lidar_' + img_filename
+                    torch.save(downsized_range_tensor, os.path.join(save_path_lidar, lidar_filename))
 
-                ### create ground truth maps from labels and save
-                heat_map_filename = 'heat_map_' + img_filename
-                heat_map = create_ground_truth_maps(label_dict)
-                downsized_heat_map = maxpool_tensor(heat_map)
-                torch.save(downsized_heat_map, os.path.join(save_path_heat_maps, heat_map_filename))
-                
-                want_small_dataset_for_testing = False
-                if idx_data == 9 and want_small_dataset_for_testing:
-                    return 1 
+                    ### retrieve, convert and save labels 
+                    label_dict = {}                                                             # dict of dicts
+                    labels_filename = 'labels_' + img_filename
+                    for camera_labels in frame.camera_labels:
+                        # ignore labels corresponding to other images
+                        if camera_labels.name != image.name:
+                            continue
+                        # for all labels
+                        for idx_label, label in enumerate(camera_labels.labels):
+                            label_dict[str(idx_label)] = {                                      
+                                'type':label.type,                                              # weird waymo labeling
+                                'x':int(label.box.center_x - 0.5*label.box.length),
+                                'y':int(label.box.center_y - 0.5*label.box.width),
+                                'height':int(label.box.width),
+                                'width':int(label.box.length)
+                            }
+                    save_dict(label_dict, os.path.join(save_path_labels, labels_filename))
+
+                    ### create ground truth maps from labels and save
+                    heat_map_filename = 'heat_map_' + img_filename
+                    heat_map = create_ground_truth_maps(label_dict)
+                    downsized_heat_map = maxpool_tensor(heat_map)
+                    torch.save(downsized_heat_map, os.path.join(save_path_heat_maps, heat_map_filename))
+                    
+                    want_small_dataset_for_testing = False
+                    if idx_data == 9 and want_small_dataset_for_testing:
+                        return 1 
         print(idx_data+1, ' IMAGES PROCESSED')
