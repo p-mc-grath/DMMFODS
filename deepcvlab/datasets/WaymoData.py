@@ -18,17 +18,18 @@ class WaymoDataset(Dataset):
             self.files[datatype] = []
 
         # data dirs
-        root = config.dir.data.root
-        waymo_buckets = listdir(root)
+        self.root = config.dir.data.root
+        waymo_buckets = listdir(self.root)
 
         # filenames incl path
         for waymo_bucket in waymo_buckets:
-            tf_data_dirs = listdir(join(root, waymo_bucket))
+            tf_data_dirs = listdir(join(self.root, waymo_bucket))
             for tf_data_dir in tf_data_dirs:
                 for datatype in config.dataset.datatypes:
-                    current_dir = join(root, waymo_bucket, tf_data_dir, mode, datatype)
+                    current_dir_no_root = join(waymo_bucket, tf_data_dir, mode, datatype)                           # used to make storage req smaller
+                    current_dir = join(self.root, current_dir_no_root)
                     if isdir(current_dir):
-                        self.files[datatype] = self.files[datatype] + [join(current_dir, file) for file in listdir(current_dir)]
+                        self.files[datatype] = self.files[datatype] + [join(current_dir_no_root, file) for file in listdir(current_dir)]
 
         self._check_data_integrity()
         print('Your %s dataset consists of %d images' %(mode, len(self.files['images'])))
@@ -41,9 +42,9 @@ class WaymoDataset(Dataset):
             idx = idx.tolist()
 
         # load data corresponding to idx
-        image = torch.load(self.files['images'][idx])    
-        lidar = torch.load(self.files['lidar'][idx])
-        ht_map= torch.load(self.files['heat_maps'][idx])
+        image = torch.load(join(self.root, self.files['images'][idx]))    
+        lidar = torch.load(join(self.root, self.files['lidar'][idx]))
+        ht_map= torch.load(join(self.root, self.files['heat_maps'][idx]))
     
         return image, lidar, ht_map
 
