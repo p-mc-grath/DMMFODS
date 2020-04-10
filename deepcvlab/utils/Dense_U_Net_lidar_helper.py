@@ -48,6 +48,7 @@ def create_config(host_dir):
         'growth_rate': 32,
         'block_config': (6, 12, 24, 16),
         'num_init_features': 64,
+        'num_rgb_in_channels': 3,
         'num_lidar_in_channels': 1,
         'concat_before_block_num': 2,
         'num_layers_before_blocks': 4,
