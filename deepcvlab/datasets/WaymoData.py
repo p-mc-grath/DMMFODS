@@ -24,7 +24,7 @@ class WaymoDataset(Dataset):
         waymo_buckets = listdir(self.root)
 
         # filenames incl path
-        for waymo_bucket in waymo_buckets:
+        for waymo_bucket in waymo_buckets[config.dataset.subset]:
             tf_data_dirs = listdir(join(self.root, waymo_bucket))
             for tf_data_dir in tf_data_dirs:
                 for datatype in config.dataset.datatypes:

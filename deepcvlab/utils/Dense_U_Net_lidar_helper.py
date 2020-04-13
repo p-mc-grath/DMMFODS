@@ -85,6 +85,7 @@ def create_config(host_dir):
 
     # waymo dataset info
     config['dataset'] = {
+        'subset': slice(5,6),
         'label': {
             '1': 'TYPE_VEHICLE',
             '2': 'TYPE_PEDESTRIAN',
@@ -121,6 +122,7 @@ def create_config(host_dir):
     config['dir']['data'] = {'root': join(config['dir']['hosting'], 'data')}                       # because config.dir.data. train,test,val also exist
 
     '''
+    changed structure due to colab weirdness
     # directories according to distribute_data_into_train_val_test function in this script
     # not used as their have to be multiple data roots due to colab restrictions
     for mode in ['train', 'val', 'test']:

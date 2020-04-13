@@ -11,15 +11,17 @@ from collections import OrderedDict
 from collections import deque 
 from ...utils.Dense_U_Net_lidar_helper import get_config 
 
-# Structure of encoder basically same as 
+# Structure of code essentially: 
 # https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py
 
 class Dense_U_Net_lidar(nn.Module):
     '''
+    U-Net like structure | Encoder = DenseNet original | optional secondary stream in     encoder processing lidar data
+
     Keeping the structure and variable namung of original densenet | allowing to use pretrained weigthts from torchvision.models
     1. Added optional lidar stream mirroring the densenet rgb stream
     2. Added optional Concat layer to bring together rgb and lidar
-    3. replacing the classifier with UNet like Decoder
+    3. replacing the classifier with UNet like Decoder | feeding in output of blocks | if split streams using rgb stream
     4. Output: Heat Maps for each class
 
     Args:   
@@ -110,9 +112,9 @@ class Dense_U_Net_lidar(nn.Module):
         
         # final refinement: concat orig rgb & lidar before passing
         self.dec_out_to_heat_maps = nn.Sequential(OrderedDict([
-            ('norm0', nn.BatchNorm2d(num_features+3+self.num_lidar_in_channels)),
+            ('norm0', nn.BatchNorm2d(num_features+self.num_rgb_in_channels+self.num_lidar_in_channels)),
             ('relu0', nn.ReLU(inplace=True)),
-            ('refine0', nn.Conv2d(num_features+3+self.num_lidar_in_channels, 
+            ('refine0', nn.Conv2d(num_features+self.num_rgb_in_channels+self.num_lidar_in_channels, 
                 num_features//2, 3, stride=1, padding=1, bias=False)),
             ('norm1', nn.BatchNorm2d(num_features//2)),
             ('relu1', nn.ReLU(inplace=True)),
@@ -123,7 +125,7 @@ class Dense_U_Net_lidar(nn.Module):
         ### additional structure depending on fusion mechanism
         
         if self.fusion == 'early':
-            # concat rgb and lidar before network
+            # i.e. concat rgb and lidar before network
 
             self.features[0].in_channels = self.num_lidar_in_channels + self.num_rgb_in_channels
 
@@ -202,8 +204,10 @@ class Dense_U_Net_lidar(nn.Module):
 
         # assigning name
         early = self.fusion == 'early'
-        if early:
+        if early and not lidar_data is None:                                                        # allowing net to work with lidar only
             features = torch.cat((rgb_data, lidar_data), 1)
+        elif early and lidar_data is None:
+            features = rgb_data
         else:
             features = rgb_data
             lidar_features = self.lidar_features(lidar_data)
