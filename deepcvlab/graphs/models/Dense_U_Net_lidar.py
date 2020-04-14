@@ -45,23 +45,25 @@ class Dense_U_Net_lidar(nn.Module):
 
         # param assignment
         self.concat_before_block_num = config.model.concat_before_block_num
-        self.num_rgb_in_channels = config.model.num_rgb_in_channels
-        self.num_lidar_in_channels = config.model.num_lidar_in_channels
         self.num_layers_before_blocks = config.model.num_layers_before_blocks
+        self.num_lidar_in_channels = config.model.num_lidar_in_channels
+        self.num_rgb_in_channels = config.model.num_rgb_in_channels        
+        self.network_input_channels = self.num_rgb_in_channels                                               # Allowing for rgb input or torch.cat((rgb,lidar),1) | added
         if self.concat_before_block_num == 1:
             self.fusion = 'early'
+            self.network_input_channels += self.num_lidar_in_channels
         elif self.concat_before_block_num > 1 and self.concat_before_block_num <= len(self.block_config):
             self.fusion = 'mid'
         else:
             raise AttributeError
-
+        
         ### core structure
         
         ## Encoder | same as densenet without norm5 and classifier 
-        
+
         # First convolution | original densenet 
         self.features = nn.Sequential(OrderedDict([
-            ('conv0', nn.Conv2d(3, self.num_init_features, kernel_size=7, stride=2,
+            ('conv0', nn.Conv2d(self.network_input_channels, self.num_init_features, kernel_size=7, stride=2,
                                 padding=3, bias=False)),
             ('norm0', nn.BatchNorm2d(self.num_init_features)),
             ('relu0', nn.ReLU(inplace=True)),
@@ -127,7 +129,7 @@ class Dense_U_Net_lidar(nn.Module):
         if self.fusion == 'early':
             # i.e. concat rgb and lidar before network
 
-            self.features[0].in_channels = self.num_lidar_in_channels + self.num_rgb_in_channels
+            pass
 
         elif self.fusion == 'mid':
             # add all the same processing for the lidar data as for rgb data
@@ -200,15 +202,17 @@ class Dense_U_Net_lidar(nn.Module):
         # stack of encoding features used in decoder
         HxW_shape_stack = deque()
         features_from_enc_stack = deque()
-        features_from_enc_stack.append(torch.cat((rgb_data, lidar_data), 1))
 
         # assigning name
         early = self.fusion == 'early'
         if early and not lidar_data is None:                                                        # allowing net to work with lidar only
+            features_from_enc_stack.append(torch.cat((rgb_data, lidar_data), 1))
             features = torch.cat((rgb_data, lidar_data), 1)
         elif early and lidar_data is None:
+            features_from_enc_stack.append(rgb_data)
             features = rgb_data
         else:
+            features_from_enc_stack.append(torch.cat((rgb_data, lidar_data), 1))
             features = rgb_data
             lidar_features = self.lidar_features(lidar_data)
 
