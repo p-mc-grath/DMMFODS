@@ -195,7 +195,7 @@ class Dense_U_Net_lidar_Agent:
             
             # pixel-wise loss
             current_loss = self.loss(prediction, ht_map)
-            loss_per_class = torch.sum(current_loss, dim=(0,2,3))
+            loss_per_class = torch.sum(current_loss.detach(), dim=(0,2,3))
             epoch_loss += [epoch_loss[-1] + loss_per_class]
 
             # whole image IoU per class
@@ -204,7 +204,7 @@ class Dense_U_Net_lidar_Agent:
 
             # backprop
             self.optimizer.zero_grad()
-            current_loss.backward(torch.ones_like(current_loss, device=self.device))                            # , retain_graph=True?
+            current_loss.backward(torch.ones_like(current_loss.detach(), device=self.device))                            # , retain_graph=True?
             self.optimizer.step()
 
             # counters
@@ -258,7 +258,7 @@ class Dense_U_Net_lidar_Agent:
             
             # pixel-wise loss
             current_loss = self.loss(prediction, ht_map)
-            loss_per_class = torch.sum(current_loss, dim=(0,2,3))
+            loss_per_class = torch.sum(current_loss.detach(), dim=(0,2,3))
             epoch_loss += [epoch_loss[-1] + loss_per_class]
             
             # whole image IoU per class
