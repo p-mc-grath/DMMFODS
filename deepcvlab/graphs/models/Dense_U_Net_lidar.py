@@ -220,8 +220,8 @@ class Dense_U_Net_lidar(nn.Module):
         for i, enc_module in enumerate(self.features): 
             features = enc_module(features)                                                         # encode
 
-            # concat lidar and rgb
-            if not early and i == self.num_layers_before_blocks + 2**(self.concat_before_block_num-2): 
+            # concat lidar and rgb after transition
+            if not early and i == self.num_layers_before_blocks-1 + 2*self.concat_before_block_num: 
                 assert features.size() == lidar_features.size(), str(features.size()) + ' ' + str(lidar_features.size())
                 features = torch.cat((features, lidar_features), 1)              
                 features = self.concat_module(features)
