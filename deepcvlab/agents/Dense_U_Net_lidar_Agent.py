@@ -141,7 +141,8 @@ class Dense_U_Net_lidar_Agent:
         '''
         try:
             if self.config.loader.mode == 'test':
-                self.validate()
+                with torch.no_grad():
+                    self.validate()
             else:
                 self.train()
 
@@ -158,7 +159,8 @@ class Dense_U_Net_lidar_Agent:
             self.current_epoch = epoch
             self.train_one_epoch()
 
-            avg_val_acc_per_class = self.validate()
+            with torch.no_grad():
+                avg_val_acc_per_class = self.validate()
             val_acc = torch.mean(avg_val_acc_per_class)
             is_best = val_acc > self.best_val_acc
             if is_best:
