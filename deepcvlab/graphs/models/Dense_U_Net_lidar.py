@@ -16,10 +16,10 @@ from ...utils.Dense_U_Net_lidar_helper import get_config
 
 class Dense_U_Net_lidar(nn.Module):
     '''
-    U-Net like structure | Encoder = DenseNet original | optional secondary stream in     encoder processing lidar data
+    U-Net like structure | Encoder = DenseNet original | optional secondary stream in encoder processing lidar data
 
-    Keeping the structure and variable namung of original densenet | allowing to use pretrained weigthts from torchvision.models
-    1. Added optional lidar stream mirroring the densenet rgb stream
+    Keeping the structure and variable naming of original densenet (= streram_1) | allowing to use pretrained weigthts from torchvision.models
+    1. Added optional lidar stream (stream_2) mirroring the densenet rgb stream (stream_1)
     2. Added optional Concat layer to bring together rgb and lidar
     3. replacing the classifier with UNet like Decoder | feeding in output of blocks | if split streams using rgb stream
     4. Output: Heat Maps for each class
@@ -142,7 +142,7 @@ class Dense_U_Net_lidar(nn.Module):
             # add concat layer
 
             # First convolution | original densenet | for lidar block  
-            self.lidar_features = nn.Sequential(OrderedDict([
+            self.stream_2_features = nn.Sequential(OrderedDict([
                 ('conv0', nn.Conv2d(self.stream_2_in_channels, self.num_init_features, kernel_size=7, stride=2,
                                     padding=3, bias=False)),
                 ('norm0', nn.BatchNorm2d(self.num_init_features)),
@@ -163,12 +163,12 @@ class Dense_U_Net_lidar(nn.Module):
                 drop_rate=self.drop_rate,
                 memory_efficient=self.memory_efficient
                 )
-                self.lidar_features.add_module('denseblock%d' % (i + 1), block)
+                self.stream_2_features.add_module('denseblock%d' % (i + 1), block)
                 num_features = num_features + num_layers * self.growth_rate
                 if i != len(self.block_config) - 1:
                     trans = _Transition(num_input_features=num_features,
                                         num_output_features=num_features // 2)
-                    self.lidar_features.add_module('transition%d' % (i + 1), trans)
+                    self.stream_2_features.add_module('transition%d' % (i + 1), trans)
                     num_features = num_features // 2
             
             # concat layer | rgb + lidar | 1x1 conv
@@ -203,7 +203,7 @@ class Dense_U_Net_lidar(nn.Module):
         rgb_data: batch, channels, W, H (W and H as lidar_data!)
         lidar_data: batch, channels, W, H (W and H as rgb_data!)
     '''
-    def forward(self, rgb_data, lidar_data):
+    def forward(self, stream_1_data, stream_2_data):
         
         # stack of encoding features used in decoder
         HxW_shape_stack = deque()
@@ -211,15 +211,15 @@ class Dense_U_Net_lidar(nn.Module):
 
         # assigning name
         if self.fusion == 'no':                                                                     # allowing net to work with lidar only
-            features_from_enc_stack.append(rgb_data)
-            features = rgb_data
+            features_from_enc_stack.append(stream_1_data)
+            features = stream_1_data
         elif self.fusion == 'early':
-            features_from_enc_stack.append(torch.cat((rgb_data, lidar_data), 1))
-            features = torch.cat((rgb_data, lidar_data), 1)
+            features_from_enc_stack.append(torch.cat((stream_1_data, stream_2_data), 1))
+            features = torch.cat((stream_1_data, stream_2_data), 1)
         elif self.fusion == 'mid':
-            features_from_enc_stack.append(torch.cat((rgb_data, lidar_data), 1))
-            features = rgb_data
-            lidar_features = self.lidar_features(lidar_data)
+            features_from_enc_stack.append(torch.cat((stream_1_data, stream_2_data), 1))
+            features = stream_1_data
+            stream_2_features = self.stream_2_features(stream_2_data)
         else:
             raise AttributeError
 
@@ -229,8 +229,8 @@ class Dense_U_Net_lidar(nn.Module):
 
             # concat lidar and rgb after transition
             if self.fusion == 'mid' and i == self.num_layers_before_blocks-1 + 2*(self.concat_before_block_num-1): 
-                assert features.size() == lidar_features.size(), str(features.size()) + ' ' + str(lidar_features.size())
-                features = torch.cat((features, lidar_features), 1)              
+                assert features.size() == stream_2_features.size(), str(features.size()) + ' ' + str(stream_2_features.size())
+                features = torch.cat((features, stream_2_features), 1)              
                 features = self.concat_module(features)
 
             # save features for decoder in stack
