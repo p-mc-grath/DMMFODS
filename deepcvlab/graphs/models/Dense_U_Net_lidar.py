@@ -49,7 +49,9 @@ class Dense_U_Net_lidar(nn.Module):
         self.num_lidar_in_channels = config.model.num_lidar_in_channels
         self.num_rgb_in_channels = config.model.num_rgb_in_channels        
         self.network_input_channels = self.num_rgb_in_channels                                               # Allowing for rgb input or torch.cat((rgb,lidar),1) | added
-        if self.concat_before_block_num == 1:
+        if self.concat_before_block_num == 1 and self.num_lidar_in_channels == 0:
+            self.fusion = 'no'
+        elif self.concat_before_block_num == 1 and self.num_lidar_in_channels > 0:
             self.fusion = 'early'
             self.network_input_channels += self.num_lidar_in_channels
         elif self.concat_before_block_num > 1 and self.concat_before_block_num <= len(self.block_config):
@@ -125,8 +127,12 @@ class Dense_U_Net_lidar(nn.Module):
             ]))
 
         ### additional structure depending on fusion mechanism
-        
-        if self.fusion == 'early':
+        if self.fusion == 'no':
+            # i.e. one stream only
+
+            pass
+
+        elif self.fusion == 'early':
             # i.e. concat rgb and lidar before network
 
             pass
@@ -204,24 +210,25 @@ class Dense_U_Net_lidar(nn.Module):
         features_from_enc_stack = deque()
 
         # assigning name
-        early = self.fusion == 'early'
-        if early and not lidar_data is None:                                                        # allowing net to work with lidar only
-            features_from_enc_stack.append(torch.cat((rgb_data, lidar_data), 1))
-            features = torch.cat((rgb_data, lidar_data), 1)
-        elif early and lidar_data is None:
+        if self.fusion == 'no':                                                                     # allowing net to work with lidar only
             features_from_enc_stack.append(rgb_data)
             features = rgb_data
-        else:
+        elif self.fusion == 'early':
+            features_from_enc_stack.append(torch.cat((rgb_data, lidar_data), 1))
+            features = torch.cat((rgb_data, lidar_data), 1)
+        elif self.fusion == 'mid':
             features_from_enc_stack.append(torch.cat((rgb_data, lidar_data), 1))
             features = rgb_data
             lidar_features = self.lidar_features(lidar_data)
+        else:
+            raise AttributeError
 
         # encoding
         for i, enc_module in enumerate(self.features): 
             features = enc_module(features)                                                         # encode
 
             # concat lidar and rgb after transition
-            if not early and i == self.num_layers_before_blocks-1 + 2*(self.concat_before_block_num-1): 
+            if self.fusion == 'mid' and i == self.num_layers_before_blocks-1 + 2*(self.concat_before_block_num-1): 
                 assert features.size() == lidar_features.size(), str(features.size()) + ' ' + str(lidar_features.size())
                 features = torch.cat((features, lidar_features), 1)              
                 features = self.concat_module(features)
@@ -273,7 +280,7 @@ def _load_state_dict(model, config, model_url, progress):
     ### ADDED pytorch version such that it fits the Dense_U_Net_lidar
 
     # remove state dict keys that are unnecessary/ different in this implementation
-    if model.fusion == 'early' and model.num_lidar_in_channels > 0:
+    if model.fusion == 'early' or model.num_rgb_in_channels != 3:
         del state_dict_torchvision['features.conv0.weight']
     del state_dict_torchvision['features.norm5.weight']
     del state_dict_torchvision['classifier.weight']
