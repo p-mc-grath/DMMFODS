@@ -16,6 +16,44 @@ from waymo_open_dataset.utils import transform_utils
 from waymo_open_dataset.utils import  frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
 
+def load_json_config(loading_dir, file_name):
+    '''
+    tries to load file
+    if successful converts tuple in config.dataset.subset into slice and returns config
+    else returns None
+    '''
+    json_file = join(loading_dir, file_name)
+    
+    # try loading file 
+    if isfile(json_file):
+        with open(json_file, 'r') as config_file:
+            config = json.load(config_file)
+
+        # because slices cannot be serialized
+        subset_start, subset_stop = config.dataset.subset 
+        config.dataset.subset = slice(subset_start, subset_stop) 
+
+        return config
+    else:
+        return None
+
+def save_json_config(config, file_name='config.json'):
+    '''
+    changes slice in config.dataset.subset into serializable tuple
+    saves to json formatted with indent = 4 | human readable
+    '''
+    # cannot serialize slice
+    subset_start = config.dataset.subset.start
+    subset_stop = config.dataset.subset.stop
+    config.dataset.subset = (subset_start, subset_stop)
+    
+    # save to json file | pretty with indent
+    Path(config.dir.configs).mkdir(exist_ok=True)
+    with open(os.path.join(config.dir.configs, file_name), 'w') as fp:
+        json.dump(config, fp, indent=4)
+
+    print('Successfully saved ' + file_name)
+    return 1
 
 def create_config(host_dir):
     '''
@@ -135,16 +173,13 @@ def create_config(host_dir):
 
     return config
 
-def get_config(host_dir=''):
+def get_config(host_dir='', file_name='config.json'):
     '''
-    Using json because human readable
+    load from json file or create config
     '''
-    json_file = join(host_dir, 'config', 'Dense_U_Net_lidar_config.json')
+    config = load_json_config(join(host_dir, 'DeepCVLab', 'deepcvlab', 'configs'), file_name)
     
-    if isfile(json_file):
-        with open(json_file, 'r') as config_file:
-            config = json.load(config_file)                                                           # values -> attrs
-    else:
+    if config is None:
         config = create_config(host_dir)
 
     return edict(config)
