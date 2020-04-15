@@ -7,10 +7,10 @@ Framework:  PyTorch
 Approach:  
 * U-Net like encoder-decoder structure  
 * DenseNet used as encoder  
-  * lidar data processed in 
-    * early-fusion: 4th channel of rgb image i.e. input: rgbl
-    * mid-fusion: parallel densenet like stream 
-  * concatenation layer added before a block of choice 
+  * no-fusion: stream_1 processed only 
+  * early-fusion: stream_1 only | input size = stream_1_in_channels + stream_2_in_channels
+  * mid-fusion: parallel densenet-like | stream_1 and stream_2 
+    * concatenation layer added before a block of choice 
 * Ground truth bounding boxes processed to segmentation masks
 * Loss: each pixel can independently belong to each of the classes (vehicle, pedestrian, cyclist)
 * Lidar data projected into image like tensor with zero values where no data  
