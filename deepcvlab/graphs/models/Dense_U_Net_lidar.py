@@ -275,7 +275,6 @@ def _load_state_dict(model, config, model_url, progress):
     # remove state dict keys that are unnecessary/ different in this implementation
     if model.fusion == 'early' and model.num_lidar_in_channels > 0:
         del state_dict_torchvision['features.conv0.weight']
-        del state_dict_torchvision['features.conv0.bias']
     del state_dict_torchvision['features.norm5.weight']
     del state_dict_torchvision['classifier.weight']
     del state_dict_torchvision['classifier.bias']
