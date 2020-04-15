@@ -21,6 +21,9 @@ Tutorial:
 3. run the INSTALLATION and DATA sections
 4. In the first cell of TRAINING, give the path to the directory containing the directory containing the deepcvlab repo to the get_config call (I know...)
 
+Note:
+This work is fully compatible with Colab given your GDrive is big enough. Due to being contraint to Colab, a lot of subdirectories are being used. For more information see Colab_Setup.ipnb
+
 Following the structure suggested by:   
 https://github.com/moemen95/Pytorch-Project-Template  
 Adaptation: config EasyDict can be created from /utils/Dense_U_Net_lidar_helper  
