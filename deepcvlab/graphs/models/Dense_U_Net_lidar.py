@@ -46,14 +46,14 @@ class Dense_U_Net_lidar(nn.Module):
         # param assignment
         self.concat_before_block_num = config.model.concat_before_block_num
         self.num_layers_before_blocks = config.model.num_layers_before_blocks
-        self.num_lidar_in_channels = config.model.num_lidar_in_channels
-        self.num_rgb_in_channels = config.model.num_rgb_in_channels        
-        self.network_input_channels = self.num_rgb_in_channels                                               # Allowing for rgb input or torch.cat((rgb,lidar),1) | added
-        if self.concat_before_block_num == 1 and self.num_lidar_in_channels == 0:
+        self.stream_1_in_channels = config.model.stream_1_in_channels
+        self.stream_2_in_channels = config.model.stream_2_in_channels        
+        self.network_input_channels = self.stream_1_in_channels                                               # Allowing for rgb input or torch.cat((rgb,lidar),1) | added
+        if self.concat_before_block_num == 1 and self.stream_2_in_channels == 0:
             self.fusion = 'no'
-        elif self.concat_before_block_num == 1 and self.num_lidar_in_channels > 0:
+        elif self.concat_before_block_num == 1 and self.stream_2_in_channels > 0:
             self.fusion = 'early'
-            self.network_input_channels += self.num_lidar_in_channels
+            self.network_input_channels += self.stream_2_in_channels
         elif self.concat_before_block_num > 1 and self.concat_before_block_num <= len(self.block_config):
             self.fusion = 'mid'
         else:
@@ -116,9 +116,9 @@ class Dense_U_Net_lidar(nn.Module):
         
         # final refinement: concat orig rgb & lidar before passing
         self.dec_out_to_heat_maps = nn.Sequential(OrderedDict([
-            ('norm0', nn.BatchNorm2d(num_features+self.num_rgb_in_channels+self.num_lidar_in_channels)),
+            ('norm0', nn.BatchNorm2d(num_features+self.stream_1_in_channels+self.stream_2_in_channels)),
             ('relu0', nn.ReLU(inplace=True)),
-            ('refine0', nn.Conv2d(num_features+self.num_rgb_in_channels+self.num_lidar_in_channels, 
+            ('refine0', nn.Conv2d(num_features+self.stream_1_in_channels+self.stream_2_in_channels, 
                 num_features//2, 3, stride=1, padding=1, bias=False)),
             ('norm1', nn.BatchNorm2d(num_features//2)),
             ('relu1', nn.ReLU(inplace=True)),
@@ -143,7 +143,7 @@ class Dense_U_Net_lidar(nn.Module):
 
             # First convolution | original densenet | for lidar block  
             self.lidar_features = nn.Sequential(OrderedDict([
-                ('conv0', nn.Conv2d(self.num_lidar_in_channels, self.num_init_features, kernel_size=7, stride=2,
+                ('conv0', nn.Conv2d(self.stream_2_in_channels, self.num_init_features, kernel_size=7, stride=2,
                                     padding=3, bias=False)),
                 ('norm0', nn.BatchNorm2d(self.num_init_features)),
                 ('relu0', nn.ReLU(inplace=True)),
@@ -280,7 +280,7 @@ def _load_state_dict(model, config, model_url, progress):
     ### ADDED pytorch version such that it fits the Dense_U_Net_lidar
 
     # remove state dict keys that are unnecessary/ different in this implementation
-    if model.fusion == 'early' or model.num_rgb_in_channels != 3:
+    if model.fusion == 'early' or model.stream_1_in_channels != 3:
         del state_dict_torchvision['features.conv0.weight']
     del state_dict_torchvision['features.norm5.weight']
     del state_dict_torchvision['classifier.weight']

@@ -86,8 +86,8 @@ def create_config(host_dir):
         'growth_rate': 32,
         'block_config': (6, 12, 24, 16),
         'num_init_features': 64,
-        'num_rgb_in_channels': 3,
-        'num_lidar_in_channels': 1,
+        'stream_1_in_channels': 3,                                          # rgb if rgb and lidar | rgb if rgb only | lidar if lidar only
+        'stream_2_in_channels': 1,                                          # lidar if rgb and lidar | 0 if rgb only | 0 if lidar only
         'concat_before_block_num': 2,
         'num_layers_before_blocks': 4,
         'bn_size': 4,
