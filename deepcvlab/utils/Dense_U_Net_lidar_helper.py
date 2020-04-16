@@ -16,18 +16,45 @@ from waymo_open_dataset.utils import transform_utils
 from waymo_open_dataset.utils import  frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
 
-def load_json_config(loading_dir, file_name):
+def load_json_file(filepath):
+    '''
+    simply loads json file
+    Arguments:
+        filepath: full path path incl. filename and extension
+    '''
+    if isfile(filepath):
+        with open(filepath, 'r') as jf:
+                json_file = json.load(jf)
+    else:
+        raise FileNotFoundError
+
+    return json_file
+
+def save_json_file(filepath, file, indent=None):
+    '''
+    simply saves json file
+    Arguments:
+        filepath: full path path incl. filename and extension
+        file: file to save
+        indent: allows pretty json file for human readability | None most dense representation
+    '''
+    with open(filepath, 'w') as jf:
+        json.dump(file, jf, indent=indent)
+
+    print('Successfully saved ' + filepath)
+    return 1
+
+def load_config(loading_dir, file_name):
     '''
     tries to load file
     if successful converts tuple in config.dataset.subset into slice and returns config
     else returns None
     '''
     json_file = join(loading_dir, file_name)
-    
-    # try loading file 
+     
     if isfile(json_file):
-        with open(json_file, 'r') as config_file:
-            config = json.load(config_file)
+        # load
+        config = load_json_file(json_file)
 
         # because slices cannot be serialized
         if type(config.dataset.subset) is tuple:
@@ -38,7 +65,7 @@ def load_json_config(loading_dir, file_name):
     else:
         return None
 
-def save_json_config(config, file_name='config.json'):
+def save_config(config, file_name='config.json'):
     '''
     changes slice in config.dataset.subset into serializable tuple
     saves to json formatted with indent = 4 | human readable
@@ -51,11 +78,7 @@ def save_json_config(config, file_name='config.json'):
     
     # save to json file | pretty with indent
     Path(config.dir.configs).mkdir(exist_ok=True)
-    with open(os.path.join(config.dir.configs, file_name), 'w') as fp:
-        json.dump(config, fp, indent=4)
-
-    print('Successfully saved ' + file_name)
-    return 1
+    save_json_file(os.path.join(config.dir.configs, file_name), config, indent=4)
 
 def create_config(host_dir):
     '''
@@ -135,7 +158,8 @@ def create_config(host_dir):
             'original.size': (3, 1920, 1280),
             'size': (3, 192, 128)
         },
-        'datatypes': ['images', 'lidar', 'labels', 'heat_maps']
+        'datatypes': ['images', 'lidar', 'labels', 'heat_maps'],
+        'file_list_name': 'file_list.json'
     }
 
     # agent params
@@ -159,7 +183,10 @@ def create_config(host_dir):
         config['dir'][subdir] = join(config['dir']['root'], subdir)
     config['dir']['graphs'] = {'models': join(config['dir']['graphs'], 'models')}
     
-    config['dir']['data'] = {'root': join(config['dir']['hosting'], 'data')}                       # because config.dir.data. train,test,val also exist
+    config['dir']['data'] = {
+        'root': join(config['dir']['hosting'], 'data'),
+        'file_lists': join(config['dir']['root'], 'data')
+        }                      
 
     '''
     changed structure due to colab weirdness
@@ -179,7 +206,7 @@ def get_config(host_dir='', file_name='config.json'):
     '''
     load from json file or create config
     '''
-    config = load_json_config(join(host_dir, 'DeepCVLab', 'deepcvlab', 'configs'), file_name)
+    config = load_config(join(host_dir, 'DeepCVLab', 'deepcvlab', 'configs'), file_name)
     
     if config is None:
         config = create_config(host_dir)

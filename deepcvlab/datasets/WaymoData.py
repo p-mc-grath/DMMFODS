@@ -1,8 +1,10 @@
 import torch
 import pickle
 from os import listdir
-from os.path import join, isdir
+from os.path import join, isdir, isfile
+from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
+from ..utils.Dense_U_Net_lidar_helper import load_json_file, save_json_file
 
 class WaymoDataset(Dataset):
     def __init__(self, mode, config):
@@ -14,35 +16,49 @@ class WaymoDataset(Dataset):
         '''
         super().__init__()
 
-        # allocation
-        self.files = {}
-        for datatype in config.dataset.datatypes:
-            self.files[datatype] = []
+        json_file_path = join(config.dir.data.file_lists, config.dataset.file_list_name)
 
-        # data dirs | support for list and slice
-        self.root = config.dir.data.root
-        waymo_buckets = listdir(self.root)
-        waymo_buckets.sort()
-        if type(config.dataset.subset) is slice:
-            waymo_buckets = waymo_buckets[config.dataset.subset]    
-        elif type(config.dataset.subset) is list:
-            waymo_buckets = [waymo_buckets[subdir] for subdir in config.dataset.subset]
+        # load from json file if possible
+        if isfile(json_file_path):
+            self.root = config.dir.data.root
+            self.files = load_json_file(json_file_path)
+
+        # crawl directories else
         else:
-            raise AttributeError
 
-        # filenames incl path
-        for waymo_bucket in waymo_buckets:
-            tf_data_dirs = listdir(join(self.root, waymo_bucket))
-            for tf_data_dir in tf_data_dirs:
-                for datatype in config.dataset.datatypes:
-                    current_dir_no_root = join(waymo_bucket, tf_data_dir, mode, datatype)                           # used to make storage req smaller
-                    current_dir = join(self.root, current_dir_no_root)
-                    if isdir(current_dir):
-                        self.files[datatype] = self.files[datatype] + [join(current_dir_no_root, file) for file in listdir(current_dir)]
-        print('Your %s dataset consists of %d images' %(mode, len(self.files['images'])))
+            # allocation
+            self.files = {}
+            for datatype in config.dataset.datatypes:
+                self.files[datatype] = []
 
-        # make sure all names match
-        self._check_data_integrity()
+            # data dirs | support for list and slice
+            self.root = config.dir.data.root
+            waymo_buckets = listdir(self.root)
+            waymo_buckets.sort()
+            if type(config.dataset.subset) is slice:
+                waymo_buckets = waymo_buckets[config.dataset.subset]    
+            elif type(config.dataset.subset) is list:
+                waymo_buckets = [waymo_buckets[subdir] for subdir in config.dataset.subset]
+            else:
+                raise AttributeError
+
+            # filenames incl path
+            for waymo_bucket in waymo_buckets:
+                tf_data_dirs = listdir(join(self.root, waymo_bucket))
+                for tf_data_dir in tf_data_dirs:
+                    for datatype in config.dataset.datatypes:
+                        current_dir_no_root = join(waymo_bucket, tf_data_dir, mode, datatype)                           # used to make storage req smaller
+                        current_dir = join(self.root, current_dir_no_root)
+                        if isdir(current_dir):
+                            self.files[datatype] = self.files[datatype] + [join(current_dir_no_root, file) for file in listdir(current_dir)]
+            print('Your %s dataset consists of %d images' %(mode, len(self.files['images'])))
+
+            # make sure all names match
+            self._check_data_integrity()
+
+            # save for next time
+            Path(config.dir.data.file_lists).mkdir(exist_ok=True)
+            save_json_file(json_file_path, self.files)
 
     def __getitem__(self, idx):
         '''
