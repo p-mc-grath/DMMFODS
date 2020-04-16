@@ -32,9 +32,12 @@ class WaymoDataset(Dataset):
                     current_dir = join(self.root, current_dir_no_root)
                     if isdir(current_dir):
                         self.files[datatype] = self.files[datatype] + [join(current_dir_no_root, file) for file in listdir(current_dir)]
-
-        self._check_data_integrity()
         print('Your %s dataset consists of %d images' %(mode, len(self.files['images'])))
+
+        # make sure all names match
+        for datatype in config.dataset.datatypes:
+            self.files[datatype].sort()
+        self._check_data_integrity()
 
     def __getitem__(self, idx):
         '''
