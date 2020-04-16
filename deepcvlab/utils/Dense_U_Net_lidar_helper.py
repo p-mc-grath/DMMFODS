@@ -30,8 +30,9 @@ def load_json_config(loading_dir, file_name):
             config = json.load(config_file)
 
         # because slices cannot be serialized
-        subset_start, subset_stop = config.dataset.subset 
-        config.dataset.subset = slice(subset_start, subset_stop) 
+        if type(config.dataset.subset) is tuple:
+            subset_start, subset_stop = config.dataset.subset 
+            config.dataset.subset = slice(subset_start, subset_stop) 
 
         return config
     else:
@@ -43,9 +44,10 @@ def save_json_config(config, file_name='config.json'):
     saves to json formatted with indent = 4 | human readable
     '''
     # cannot serialize slice
-    subset_start = config.dataset.subset.start
-    subset_stop = config.dataset.subset.stop
-    config.dataset.subset = (subset_start, subset_stop)
+    if type(config.dataset.subset.start) is slice:
+        subset_start = config.dataset.subset.start
+        subset_stop = config.dataset.subset.stop
+        config.dataset.subset = (subset_start, subset_stop)
     
     # save to json file | pretty with indent
     Path(config.dir.configs).mkdir(exist_ok=True)
@@ -123,7 +125,7 @@ def create_config(host_dir):
 
     # waymo dataset info
     config['dataset'] = {
-        'subset': slice(5,6),
+        'subset': slice(None, None),                                        # slice or list
         'label': {
             '1': 'TYPE_VEHICLE',
             '2': 'TYPE_PEDESTRIAN',

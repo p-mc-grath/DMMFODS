@@ -19,12 +19,19 @@ class WaymoDataset(Dataset):
         for datatype in config.dataset.datatypes:
             self.files[datatype] = []
 
-        # data dirs
+        # data dirs | support for list and slice
         self.root = config.dir.data.root
         waymo_buckets = listdir(self.root)
+        waymo_buckets.sort()
+        if type(config.dataset.subset) is slice:
+            waymo_buckets = waymo_buckets[config.dataset.subset]    
+        elif type(config.dataset.subset) is list:
+            waymo_buckets = [waymo_buckets[subdir] for subdir in config.dataset.subset]
+        else:
+            raise AttributeError
 
         # filenames incl path
-        for waymo_bucket in waymo_buckets[config.dataset.subset]:
+        for waymo_bucket in waymo_buckets:
             tf_data_dirs = listdir(join(self.root, waymo_bucket))
             for tf_data_dir in tf_data_dirs:
                 for datatype in config.dataset.datatypes:
@@ -35,8 +42,6 @@ class WaymoDataset(Dataset):
         print('Your %s dataset consists of %d images' %(mode, len(self.files['images'])))
 
         # make sure all names match
-        for datatype in config.dataset.datatypes:
-            self.files[datatype].sort()
         self._check_data_integrity()
 
     def __getitem__(self, idx):
