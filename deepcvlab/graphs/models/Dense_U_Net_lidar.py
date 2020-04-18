@@ -110,7 +110,7 @@ class Dense_U_Net_lidar(nn.Module):
             ]))
             self.decoder.add_module('Transposed_Convolution_Sequence_%d' %(i+1), transp_conv_seq)
             self.decoder.add_module('Transposed_Convolution_%d' %(i+1), nn.ConvTranspose2d(num_features, 
-                num_features, 3, stride=2, padding=1))
+                num_features, 3, stride=2, padding=1, bias=False))
             num_in_features = num_features*2
         self.decoder.add_module('Upsampling', nn.Upsample(scale_factor=2))
         
