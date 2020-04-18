@@ -139,8 +139,9 @@ def create_config(host_dir):
         'beta2': 0.999,
         'eps': 1e-08,
         'amsgrad': False,
-        'weight_decay': {
-            'value': 0,
+        'weight_decay': 0,
+        'lr_scheduler': {
+            'want': False,
             'every_n_epochs': 30,
             'gamma': 0.1
         }

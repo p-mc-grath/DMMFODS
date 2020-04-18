@@ -43,13 +43,14 @@ class Dense_U_Net_lidar_Agent:
         self.optimizer = torch.optim.Adam(self.model.parameters(), 
             lr=self.config.optimizer.learning_rate, 
             betas=(self.config.optimizer.beta1, self.config.optimizer.beta2), 
-            eps=self.config.optimizer.eps, weight_decay=self.config.optimizer.weight_decay.value, 
+            eps=self.config.optimizer.eps, weight_decay=self.config.optimizer.weight_decay, 
             amsgrad=self.config.optimizer.amsgrad)
 
         # learning rate decay scheduler
-        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 
-            step_size=self.config.optimizer.weight_decay.every_n_epochs, 
-            gamma=self.config.optimizer.weight_decay.gamma)
+        if self.config.optimizer.lr_scheduler.want:
+            self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 
+                step_size=self.config.optimizer.lr_scheduler.every_n_epochs, 
+                gamma=self.config.optimizer.lr_scheduler.gamma)
 
         # initialize counters; updated in load_checkpoint
         self.current_epoch = 0
