@@ -1,5 +1,6 @@
 import re
 import os
+import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,7 +19,7 @@ class Dense_U_Net_lidar(nn.Module):
     '''
     U-Net like structure | Encoder = DenseNet original | optional secondary stream in encoder processing lidar data
 
-    Keeping the structure and variable naming of original densenet (= streram_1) | allowing to use pretrained weigthts from torchvision.models
+    Keeping the structure and variable naming of original densenet | allowing to use pretrained weigthts from torchvision.models
     1. Added optional lidar stream (stream_2) mirroring the densenet rgb stream (stream_1)
     2. Added optional Concat layer to bring together rgb and lidar
     3. replacing the classifier with UNet like Decoder | feeding in output of blocks | if split streams using rgb stream
@@ -46,6 +47,7 @@ class Dense_U_Net_lidar(nn.Module):
         # param assignment
         self.concat_before_block_num = config.model.concat_before_block_num
         self.num_layers_before_blocks = config.model.num_layers_before_blocks
+        self.concat_after_module_idx = self.num_layers_before_blocks-1 + 2*(self.concat_before_block_num-1) 
         self.stream_1_in_channels = config.model.stream_1_in_channels
         self.stream_2_in_channels = config.model.stream_2_in_channels        
         self.network_input_channels = self.stream_1_in_channels                                               # Allowing for rgb input or torch.cat((rgb,lidar),1) | added
@@ -141,38 +143,13 @@ class Dense_U_Net_lidar(nn.Module):
             # add all the same processing for the lidar data as for rgb data
             # add concat layer
 
-            # First convolution | original densenet | for lidar block  
-            self.stream_2_features = nn.Sequential(OrderedDict([
-                ('conv0', nn.Conv2d(self.stream_2_in_channels, self.num_init_features, kernel_size=7, stride=2,
-                                    padding=3, bias=False)),
-                ('norm0', nn.BatchNorm2d(self.num_init_features)),
-                ('relu0', nn.ReLU(inplace=True)),
-                ('pool0', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
-            ]))
+            # Stream_2 mirrors Stream_1 up to concat level
+            self.lidar_features = copy.deepcopy(self.features[:self.concat_after_module_idx+1])
+            self.lidar_features.conv0 = nn.Conv2d(self.stream_2_in_channels, 
+                self.num_init_features, kernel_size=7, stride=2, padding=3, bias=False)
 
-            # Each denseblock | original densenet + break before concat layer
-            num_features = self.num_init_features
-            for i, num_layers in enumerate(self.block_config):
-                if i == self.concat_before_block_num-1:
-                    break
-                block = _DenseBlock(
-                num_layers=num_layers,
-                num_input_features=num_features,
-                bn_size=self.bn_size,
-                growth_rate=self.growth_rate,
-                drop_rate=self.drop_rate,
-                memory_efficient=self.memory_efficient
-                )
-                self.stream_2_features.add_module('denseblock%d' % (i + 1), block)
-                num_features = num_features + num_layers * self.growth_rate
-                if i != len(self.block_config) - 1:
-                    trans = _Transition(num_input_features=num_features,
-                                        num_output_features=num_features // 2)
-                    self.stream_2_features.add_module('transition%d' % (i + 1), trans)
-                    num_features = num_features // 2
-            
             # concat layer | rgb + lidar | 1x1 conv
-            num_features = self.features[self.concat_before_block_num*2-1 + self.num_layers_before_blocks-1].denselayer1.norm1.num_features
+            num_features = self.features[self.concat_after_module_idx+1].denselayer1.norm1.num_features
             self.concat_module = nn.Sequential(OrderedDict([
                 ('norm', nn.BatchNorm2d(num_features*2)),
                 ('relu', nn.ReLU(inplace=True)),
@@ -228,7 +205,7 @@ class Dense_U_Net_lidar(nn.Module):
             features = enc_module(features)                                                         # encode
 
             # concat lidar and rgb after transition
-            if self.fusion == 'mid' and i == self.num_layers_before_blocks-1 + 2*(self.concat_before_block_num-1): 
+            if self.fusion == 'mid' and i == self.concat_after_module_idx: 
                 assert features.size() == stream_2_features.size(), str(features.size()) + ' ' + str(stream_2_features.size())
                 features = torch.cat((features, stream_2_features), 1)              
                 features = self.concat_module(features)
@@ -279,20 +256,29 @@ def _load_state_dict(model, config, model_url, progress):
 
     ### ADDED pytorch version such that it fits the Dense_U_Net_lidar
 
-    # remove state dict keys that are unnecessary/ different in this implementation
+    # remove state dict of first module if different from original
     if model.fusion == 'early' or model.stream_1_in_channels != 3:
         del state_dict_torchvision['features.conv0.weight']
-    del state_dict_torchvision['features.norm5.weight']
-    del state_dict_torchvision['classifier.weight']
-    del state_dict_torchvision['classifier.bias']
 
-    # update state dict of model with retrieved pretrained values & load state_dict into model
+    # update state dict of stream_1 and load state dict back into model
     state_dict_model = model.state_dict()
     state_dict_model.update(state_dict_torchvision) 
     model.load_state_dict(state_dict_model, strict=False)
 
+    # load weights into stream_2 and load state dict back into model
+    lidar_feature_state_dict = model.lidar_features.state_dict()
+    feature_state_dict = model.features.state_dict()
+    del feature_state_dict['conv0.weight']
+    lidar_feature_state_dict.update(feature_state_dict)
+    model.lidar_features.load_state_dict(lidar_feature_state_dict, strict=False)
+
 def _dense_u_net_lidar(arch, growth_rate, block_config, num_init_features, pretrained, progress,
-            config):
+        config):
+    '''
+    loads config file if not given
+    creates model
+    loads pretrained weights if wanted
+    '''
     if config is None:
         config = get_config(os.path.join('content', 'mnt', 'My Drive', 'Colab Notebooks', 'DeepCV_Packages'))
     
