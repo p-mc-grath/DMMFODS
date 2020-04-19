@@ -32,7 +32,7 @@ Based on the torchvision densenet implementation:
 https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py  
 The original structure is fully respected, allowing to employ the pretrained weights from torchvision  
 
-Waymo dataset paper: 
+Waymo dataset paper:  
 https://arxiv.org/abs/1912.04838
 
 U-Net paper:  
