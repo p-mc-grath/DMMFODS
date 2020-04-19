@@ -34,6 +34,7 @@ class Dense_U_Net_lidar_Agent:
         self.config = self.model.config
 
         # dataloader
+        print('Creation of Dataset started')
         self.data_loader = WaymoDataset_Loader(self.config)
 
         # pixel-wise cross-entropy loss 
@@ -226,7 +227,8 @@ class Dense_U_Net_lidar_Agent:
         tqdm_batch.close()
 
         # learning rate decay update; after validate; after each epoch
-        self.lr_scheduler.step()
+        if self.config.optimizer.lr_scheduler.want:
+            self.lr_scheduler.step()
 
         self.logger.info("Training at epoch-" + str(self.current_epoch) + " | " + "average loss: " + str(
              epoch_loss[-1]/len(epoch_loss)) + " | " + "average IoU: " + str(epoch_iou[-1]/len(epoch_iou)))
