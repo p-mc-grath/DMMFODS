@@ -118,7 +118,7 @@ def create_config(host_dir):
         'bn_size': 4,
         'drop_rate': 0,
         'num_classes': 3,
-        'memory_efficient': True
+        'memory_efficient': False
     }
 
     # loader params
