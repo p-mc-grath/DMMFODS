@@ -142,11 +142,41 @@ class Dense_U_Net_lidar(nn.Module):
         elif self.fusion == 'mid':
             # add all the same processing for the lidar data as for rgb data
             # add concat layer
-
+            '''
             # Stream_2 mirrors Stream_1 up to concat level
             self.stream_2_features = copy.deepcopy(self.features[:self.concat_after_module_idx+1])
             self.stream_2_features.conv0 = nn.Conv2d(self.stream_2_in_channels, 
                 self.num_init_features, kernel_size=7, stride=2, padding=3, bias=False)
+            '''
+            # First convolution | original densenet | for lidar block  
+            self.stream_2_features = nn.Sequential(OrderedDict([
+                ('conv0', nn.Conv2d(self.stream_2_in_channels, self.num_init_features, kernel_size=7, stride=2,
+                                    padding=3, bias=False)),
+                ('norm0', nn.BatchNorm2d(self.num_init_features)),
+                ('relu0', nn.ReLU(inplace=True)),
+                ('pool0', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
+            ]))
+            
+            # Each denseblock | original densenet + break before concat layer
+            num_features = self.num_init_features
+            for i, num_layers in enumerate(self.block_config):
+                if i == self.concat_before_block_num-1:
+                    break
+                block = _DenseBlock(
+                num_layers=num_layers,
+                num_input_features=num_features,
+                bn_size=self.bn_size,
+                growth_rate=self.growth_rate,
+                drop_rate=self.drop_rate,
+                memory_efficient=self.memory_efficient
+                )
+                self.stream_2_features.add_module('denseblock%d' % (i + 1), block)
+                num_features = num_features + num_layers * self.growth_rate
+                if i != len(self.block_config) - 1:
+                    trans = _Transition(num_input_features=num_features,
+                                        num_output_features=num_features // 2)
+                    self.stream_2_features.add_module('transition%d' % (i + 1), trans)
+                    num_features = num_features // 2
 
             # concat layer | rgb + lidar | 1x1 conv
             num_features = self.features[self.concat_after_module_idx+1].denselayer1.norm1.num_features
