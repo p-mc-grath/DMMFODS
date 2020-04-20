@@ -144,8 +144,8 @@ class Dense_U_Net_lidar(nn.Module):
             # add concat layer
 
             # Stream_2 mirrors Stream_1 up to concat level
-            self.lidar_features = copy.deepcopy(self.features[:self.concat_after_module_idx+1])
-            self.lidar_features.conv0 = nn.Conv2d(self.stream_2_in_channels, 
+            self.stream_2_features = copy.deepcopy(self.features[:self.concat_after_module_idx+1])
+            self.stream_2_features.conv0 = nn.Conv2d(self.stream_2_in_channels, 
                 self.num_init_features, kernel_size=7, stride=2, padding=3, bias=False)
 
             # concat layer | rgb + lidar | 1x1 conv
@@ -266,11 +266,11 @@ def _load_state_dict(model, config, model_url, progress):
     model.load_state_dict(state_dict_model, strict=False)
 
     # load weights into stream_2 and load state dict back into model
-    lidar_feature_state_dict = model.lidar_features.state_dict()
+    lidar_feature_state_dict = model.stream_2_features.state_dict()
     feature_state_dict = model.features.state_dict()
     del feature_state_dict['conv0.weight']
     lidar_feature_state_dict.update(feature_state_dict)
-    model.lidar_features.load_state_dict(lidar_feature_state_dict, strict=False)
+    model.stream_2_features.load_state_dict(lidar_feature_state_dict, strict=False)
 
 def _dense_u_net_lidar(arch, growth_rate, block_config, num_init_features, pretrained, progress,
         config):
