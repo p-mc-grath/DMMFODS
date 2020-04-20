@@ -6,6 +6,7 @@ from torch.backends import cudnn
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from pathlib import Path
+from datetime import datetime
 
 from ..graphs.models.Dense_U_Net_lidar import densenet121_u_lidar, Dense_U_Net_lidar
 from ..utils import Dense_U_Net_lidar_helper as utils
@@ -141,6 +142,7 @@ class Dense_U_Net_lidar_Agent:
         '''
         can handle keyboard interupt
         '''
+        print('starting ' + self.config.loader.mode + ' at ' + str(datetime.now()))
         try:
             if self.config.loader.mode == 'test':
                 with torch.no_grad():
@@ -281,3 +283,4 @@ class Dense_U_Net_lidar_Agent:
         """
         self.logger.info("Please wait while finalizing the operation.. Thank you")
         self.summary_writer.close()
+        print('ending ' + self.config.loader.mode + ' at ' + str(datetime.now()))
