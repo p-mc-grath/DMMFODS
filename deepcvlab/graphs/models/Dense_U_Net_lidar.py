@@ -143,6 +143,7 @@ class Dense_U_Net_lidar(nn.Module):
             # add all the same processing for the lidar data as for rgb data
             # add concat layer
             '''
+            # weirdly gives slower iteration times
             # Stream_2 mirrors Stream_1 up to concat level
             self.stream_2_features = copy.deepcopy(self.features[:self.concat_after_module_idx+1])
             self.stream_2_features.conv0 = nn.Conv2d(self.stream_2_in_channels, 

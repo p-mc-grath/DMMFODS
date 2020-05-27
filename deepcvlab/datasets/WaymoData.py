@@ -67,7 +67,7 @@ class WaymoDataset(Dataset):
                             current_dir_no_root = join(waymo_bucket, tf_data_dir, mode, datatype)                           # used to make storage req smaller
                             current_dir = join(self.root, current_dir_no_root)
                             if isdir(current_dir):
-                                self.files[datatype] = self.files[datatype] + [join(current_dir_no_root, file) for file in listdir(current_dir)]
+                                self.files[datatype] = self.files[datatype] + [join(current_dir_no_root, f) for f in listdir(current_dir)]
                 print('Your %s dataset consists of %d images' %(mode, len(self.files['images'])))
 
                 # make sure all names match

@@ -30,25 +30,23 @@ def load_json_file(filepath):
 
     return json_file
 
-def save_json_file(filepath, file, indent=None):
+def save_json_file(filepath, save_file, indent=None):
     '''
     simply saves json file
     Arguments:
         filepath: full path path incl. filename and extension
-        file: file to save
+        save_file: file to save
         indent: allows pretty json file for human readability | None most dense representation
     '''
     with open(filepath, 'w') as jf:
-        json.dump(file, jf, indent=indent)
+        json.dump(save_file, jf, indent=indent)
 
     print('Successfully saved ' + filepath)
     return 1
 
 def load_config(loading_dir, file_name):
     '''
-    tries to load file
-    if successful converts tuple in config.dataset.subset into slice and returns config
-    else returns None
+    tries to load config from json file
     '''
     json_file = join(loading_dir, file_name)
      
@@ -56,25 +54,14 @@ def load_config(loading_dir, file_name):
         # load
         config = load_json_file(json_file)
 
-        # because slices cannot be serialized
-        if type(config.dataset.subset) is tuple:
-            subset_start, subset_stop = config.dataset.subset 
-            config.dataset.subset = slice(subset_start, subset_stop) 
-
         return config
     else:
         return None
 
 def save_config(config, file_name='config.json'):
     '''
-    changes slice in config.dataset.subset into serializable tuple
     saves to json formatted with indent = 4 | human readable
     '''
-    # cannot serialize slice
-    if type(config.dataset.subset.start) is slice:
-        subset_start = config.dataset.subset.start
-        subset_stop = config.dataset.subset.stop
-        config.dataset.subset = (subset_start, subset_stop)
     
     # save to json file | pretty with indent
     Path(config.dir.configs).mkdir(exist_ok=True)
@@ -124,10 +111,10 @@ def create_config(host_dir):
     # loader params
     config['loader'] = {
         'mode': 'train',
-        'batch_size': 32,
-        'pin_memory': True,                                                 # TODO check what else has to be done
+        'batch_size': None,
+        'pin_memory': True,                                                 
         'num_workers': 4,
-        'async_loading': True,                                              # should be same as pin_memory
+        'async_loading': True,                                              
         'drop_last': True
     }
 
@@ -149,7 +136,7 @@ def create_config(host_dir):
 
     # waymo dataset info
     config['dataset'] = {
-        'subset': slice(None, None),                                        # slice or list
+        'data_is_batched': True,
         'label': {
             '1': 'TYPE_VEHICLE',
             '2': 'TYPE_PEDESTRIAN',
