@@ -8,7 +8,7 @@ import warnings
 from easydict import EasyDict as edict
 from six.moves import cPickle as pickle
 from os import listdir
-from os.path import join, isfile
+from os.path import join, isfile, isdir
 from pathlib import Path
 
 from waymo_open_dataset.utils import range_image_utils
@@ -136,7 +136,7 @@ def create_config(host_dir):
 
     # waymo dataset info
     config['dataset'] = {
-        'data_is_batched': True,
+        'batch_size': 32,                                                   # batch size of serialized files | >=1
         'label': {
             '1': 'TYPE_VEHICLE',
             '2': 'TYPE_PEDESTRIAN',
@@ -442,55 +442,6 @@ def extract_lidar_array_from_point_cloud(points, cp_points):
 
     return lidar_array
 
-def distribute_data_into_train_val_test(split, data_root='', config=None):
-    '''
-    reason: colab might disconnect during training; better have hard separation of data subsets!
-
-    move image, lidar and label data from their respective subdirectory
-    to train, val, test subdirectories preserving their respective subdirectories
-
-    sampling is randomized; assuming same ORDER and NUMBER OF FILES of files in all subdirectories
-
-    Arguments:
-        config: edict
-        split: list: [train_percentage, val_percentage, test_percentage]
-
-    colab: there are a lot of unnessecary subdirs because of googlefilestream limitations
-    '''
-    # get config
-    if config is None:
-        config = get_config(host_dir=data_root)
-
-    if not data_root:
-        data_root = config.dir.data.root
-
-    for tf_data_dir in listdir(data_root):
-
-        if not tf_data_dir.startswith('tf_'):
-            continue
-        
-        # same indices for all subdirs
-        num_samples = len(listdir(os.path.join(data_root, tf_data_dir, 'images')))
-        indices = list(range(0, num_samples))
-        np.random.shuffle(indices)
-        
-        # make splits to split_indices for indices list
-        split = np.array(split)*num_samples
-        split_indices = [0, int(split[0]), int(split[0]+split[1]), num_samples] 
-            
-        for data_type in config.dataset.datatypes: 
-            old_path = os.path.join(data_root, tf_data_dir, data_type)
-            filenames = listdir(old_path)
-
-            for set_idx, sub_dir in enumerate(['train', 'val', 'test']):
-                new_path = os.path.join(data_root, tf_data_dir, sub_dir, data_type)
-                Path(new_path).mkdir(parents=True, exist_ok=True)
-
-                for file_idx in indices[split_indices[set_idx]:split_indices[set_idx+1]]:
-                    filename = filenames[file_idx]
-                    os.rename(os.path.join(old_path, filename), os.path.join(new_path, filename))
-
-            Path(old_path).rmdir()
             
 def waymo_to_pytorch_offline(data_root='', idx_dataset_batch=-1):
     '''
@@ -507,6 +458,7 @@ def waymo_to_pytorch_offline(data_root='', idx_dataset_batch=-1):
     (4) heat_maps from labels -> torch Tensor; image like
 
     colab: there are a lot of unnessecary subdirs because of googlefilestream limitations
+    data is not stored in batches because the data comes in sequences of 20s. 
     '''      
     # allows __iter__() for tf record dataset
     tf.compat.v1.enable_eager_execution()
@@ -602,3 +554,59 @@ def waymo_to_pytorch_offline(data_root='', idx_dataset_batch=-1):
                     if idx_data == 9 and want_small_dataset_for_testing:
                         return 1 
         print(idx_data+1, ' IMAGES PROCESSED')
+
+def save_data_in_batch(config, buckets, mode):
+    '''
+    Crawls the given directories
+    Loads separate samples in randomized order
+    Creates batches of the given size
+    Saves the batches
+
+    Arguments:
+        config: as specified in utils
+        buckets: directory names in config.dir.data.root you want to include
+        mode: one of train, val, test
+    '''
+
+    final_dirs = ['train','val','test']
+
+    if not mode in final_dirs:
+        raise ValueError('mode must be one of train, val, test. You gave ' + mode)
+
+    # load all file paths
+    files = []
+    for bucket in enumerate(buckets):
+        tf_data_dirs = listdir(join(config.dir.data.root, bucket))
+        for tf_data_dir in tf_data_dirs:
+            current_dir_no_root = join(bucket, tf_data_dir, 'images')                           
+            current_dir = join(config.dir.data.root, current_dir_no_root)
+            if isdir(current_dir):
+                files += [join(current_dir_no_root, f) for f in listdir(current_dir)]
+    
+    # create random sampling list and alocate space
+    indeces = list(range(len(files)))
+    np.random.shuffle(indeces)
+    vec = torch.empty((config.dataset.batch_size,7,128,192))
+
+    # create subdirs
+    Path(join(config.dir.data.root, mode)).mkdir(exist_ok=True)
+    for i in range(len(indeces)//config.dataset.batch_size):
+        if i%99 == 0:
+            save_dir = join(config.dir.data.root, mode, 'subset' + str(i//99))
+            Path(save_dir).mkdir(exist_ok = True)
+
+        # load minibatch into vec and save
+        for j in range(config.dataset.batch_size):
+            idx = indeces[i*config.dataset.batch_size + j]
+
+            # create lidar and heatmap paths
+            path, image = files[idx].split('/img_')
+            lidar_file_path = join(path, 'lidar_img_' + image)
+            heat_map_file_path = join(path, 'heat_map_img_' + image)
+
+            vec[j,:3,:,:] = torch.load(join(config.dir.data.root, files[idx]))
+            vec[j,3,:,:] = torch.load(join(config.dir.data.root, lidar_file_path))
+            vec[j,4:,:,:] = torch.load(join(config.dir.data.root, heat_map_file_path))
+        save_path = join(save_dir, str(i%99))
+        torch.save(vec, save_path)
+    print(i, 'batches serialized')

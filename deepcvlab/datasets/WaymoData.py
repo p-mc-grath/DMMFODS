@@ -24,7 +24,7 @@ class WaymoDataset(Dataset):
         '''
         super().__init__()
         self.root = config.dir.data.root
-        self.data_is_batched = config.dataset.data_is_batched
+        self.data_is_batched = config.dataset.batch_size > 1
 
         # to load or to save crawled data
         json_file_path = join(config.dir.data.file_lists, mode + '_' + config.dataset.file_list_name)
@@ -39,7 +39,7 @@ class WaymoDataset(Dataset):
             # batches
             if self.data_is_batched:
                 if config.loader.batch_size is not None:
-                    raise ValueError('Batch Size needs to be None if loading batched dataset')
+                    raise ValueError('config.loader.batch_size needs to be None if loading batched dataset')
                 
                 self.files = []
                 subdirs = listdir(join(self.root, mode))
@@ -74,7 +74,7 @@ class WaymoDataset(Dataset):
                 self._check_data_integrity()
 
             else: 
-                raise AttributeError 
+                raise ValueError('make sure that config.dataset.batch_size >= 1')
 
             # save for next time
             Path(config.dir.data.file_lists).mkdir(exist_ok=True)
@@ -122,7 +122,7 @@ class WaymoDataset(Dataset):
             return self.get_single_sample(idx)
 
         else:
-            raise AttributeError('config.dataset.data_is_batched needs to be assigned a boolean value')
+            raise ValueError('make sure that config.dataset.batch_size >= 1')
 
     def __len__(self):
         '''
@@ -135,7 +135,7 @@ class WaymoDataset(Dataset):
             return len(self.files['images'])
 
         else:
-            raise AttributeError('config.dataset.data_is_batched needs to be assigned a boolean value')
+            raise ValueError('make sure that config.dataset.batch_size >= 1')
 
     def _check_data_integrity(self):
         '''
@@ -168,7 +168,7 @@ class WaymoDataset_Loader:
                 drop_last=config.loader.drop_last)
             
             # iterations
-            if config.dataset.data_is_batched:
+            if train_set.data_is_batched:
                 self.train_iterations = len(train_set) 
                 self.valid_iterations = len(valid_set) 
             else:
@@ -188,7 +188,7 @@ class WaymoDataset_Loader:
                 drop_last=config.loader.drop_last)
             
             # iterations
-            if config.dataset.data_is_batched:
+            if test_set.data_is_batched:
                 self.valid_iterations = len(test_set) 
             else:
                 self.valid_iterations = (len(test_set) + config.loader.batch_size) // config.loader.batch_size
