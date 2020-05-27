@@ -9,60 +9,96 @@ from ..utils.Dense_U_Net_lidar_helper import load_json_file, save_json_file
 class WaymoDataset(Dataset):
     def __init__(self, mode, config):
         '''
+        Allows for data to be stored as one file per sample and datatype 
+        or as batches of 32 samples each containing image, lidar and heatmap data all in one file
+        --> this speeds up colab workflow significantly
+
+        Arguments:
+            mode: One of 'train', 'val', 'test'
+            config: as defined in utils
+
         Dirs are expected to ONLY CONTAIN the respective DATA !!!
         DATA is expected to be SORTED the SAME in all dirs !!!
 
         colab: there are a lot of unnessecary subdirs because of googlefilestream limitations
         '''
         super().__init__()
+        self.root = config.dir.data.root
+        self.data_is_batched = config.dataset.data_is_batched
 
-        json_file_path = join(config.dir.data.file_lists, config.dataset.file_list_name)
-
+        # to load or to save crawled data
+        json_file_path = join(config.dir.data.file_lists, mode + '_' + config.dataset.file_list_name)
+       
         # load from json file if possible
         if isfile(json_file_path):
-            self.root = config.dir.data.root
             self.files = load_json_file(json_file_path)
 
-        # crawl directories else
+        # crawl directories
         else:
+            
+            # batches
+            if self.data_is_batched:
+                if config.loader.batch_size is not None:
+                    raise ValueError('Batch Size needs to be None if loading batched dataset')
+                
+                self.files = []
+                subdirs = listdir(join(self.root, mode))
+                for subdir in subdirs:
+                    batched_data = listdir(join(self.root, mode, subdir))
+                    self.files + [join(mode, subdir, batch) for batch in batched_data]
 
-            # allocation
-            self.files = {}
-            for datatype in config.dataset.datatypes:
-                self.files[datatype] = []
 
-            # data dirs | support for list and slice
-            self.root = config.dir.data.root
-            waymo_buckets = listdir(self.root)
-            waymo_buckets.sort()
-            if type(config.dataset.subset) is slice:
-                waymo_buckets = waymo_buckets[config.dataset.subset]    
-            elif type(config.dataset.subset) is list:
-                waymo_buckets = [waymo_buckets[subdir] for subdir in config.dataset.subset]
-            else:
-                raise AttributeError
+            # single files
+            elif not self.data_is_batched:
 
-            # filenames incl path
-            for waymo_bucket in waymo_buckets:
-                tf_data_dirs = listdir(join(self.root, waymo_bucket))
-                for tf_data_dir in tf_data_dirs:
-                    for datatype in config.dataset.datatypes:
-                        current_dir_no_root = join(waymo_bucket, tf_data_dir, mode, datatype)                           # used to make storage req smaller
-                        current_dir = join(self.root, current_dir_no_root)
-                        if isdir(current_dir):
-                            self.files[datatype] = self.files[datatype] + [join(current_dir_no_root, file) for file in listdir(current_dir)]
-            print('Your %s dataset consists of %d images' %(mode, len(self.files['images'])))
+                # allocation
+                self.files = {}
+                for datatype in config.dataset.datatypes:
+                    self.files[datatype] = []
 
-            # make sure all names match
-            self._check_data_integrity()
+                # filenames incl path
+                waymo_buckets = listdir(self.root)
+                waymo_buckets = [wb for wb in waymo_buckets if wb.startswith('training_0')]
+                waymo_buckets.sort()
+                for waymo_bucket in waymo_buckets:
+                    tf_data_dirs = listdir(join(self.root, waymo_bucket))
+                    for tf_data_dir in tf_data_dirs:
+                        for datatype in config.dataset.datatypes:
+                            current_dir_no_root = join(waymo_bucket, tf_data_dir, mode, datatype)                           # used to make storage req smaller
+                            current_dir = join(self.root, current_dir_no_root)
+                            if isdir(current_dir):
+                                self.files[datatype] = self.files[datatype] + [join(current_dir_no_root, file) for file in listdir(current_dir)]
+                print('Your %s dataset consists of %d images' %(mode, len(self.files['images'])))
+
+                # make sure all names match
+                self._check_data_integrity()
+
+            else: 
+                raise AttributeError 
 
             # save for next time
             Path(config.dir.data.file_lists).mkdir(exist_ok=True)
             save_json_file(json_file_path, self.files)
 
-    def __getitem__(self, idx):
+    def get_batch(self, idx):
         '''
-        returns dataset items at idx
+        returns dataset batch at idx
+        '''
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        # load data corresponding to idx
+        batch = torch.load(join(self.root, self.files[idx]))
+
+        image_batch = batch[:,:3,:,:]   
+        lidar_batch = batch[:,3,:,:]
+        ht_map_batch = batch[:,4:,:,:]
+    
+        return image_batch, lidar_batch, ht_map_batch
+
+    def get_single_sample(self, idx):
+        '''
+        returns dataset item at idx
         '''
         if torch.is_tensor(idx):
             idx = idx.tolist()
@@ -74,8 +110,32 @@ class WaymoDataset(Dataset):
     
         return image, lidar, ht_map
 
+    def __getitem__(self, idx):
+        '''
+        returns dataset items at idx
+        '''
+
+        if self.data_is_batched:
+            return self.get_batch(idx)
+        
+        elif not self.data_is_batched:
+            return self.get_single_sample(idx)
+
+        else:
+            raise AttributeError('config.dataset.data_is_batched needs to be assigned a boolean value')
+
     def __len__(self):
-        return len(self.files['images'])
+        '''
+        returns number of batches/ samples
+        '''
+        if self.data_is_batched:
+            return len(self.files)
+
+        elif not self.data_is_batched:
+            return len(self.files['images'])
+
+        else:
+            raise AttributeError('config.dataset.data_is_batched needs to be assigned a boolean value')
 
     def _check_data_integrity(self):
         '''
@@ -108,8 +168,12 @@ class WaymoDataset_Loader:
                 drop_last=config.loader.drop_last)
             
             # iterations
-            self.train_iterations = (len(train_set) + config.loader.batch_size) // config.loader.batch_size
-            self.valid_iterations = (len(valid_set) + config.loader.batch_size) // config.loader.batch_size
+            if config.dataset.data_is_batched:
+                self.train_iterations = len(train_set) 
+                self.valid_iterations = len(valid_set) 
+            else:
+                self.train_iterations = (len(train_set) + config.loader.batch_size) // config.loader.batch_size
+                self.valid_iterations = (len(valid_set) + config.loader.batch_size) // config.loader.batch_size
 
         elif self.mode == 'test':
             # dataset
@@ -124,7 +188,10 @@ class WaymoDataset_Loader:
                 drop_last=config.loader.drop_last)
             
             # iterations
-            self.valid_iterations = (len(test_set) + config.loader.batch_size) // config.loader.batch_size
+            if config.dataset.data_is_batched:
+                self.valid_iterations = len(test_set) 
+            else:
+                self.valid_iterations = (len(test_set) + config.loader.batch_size) // config.loader.batch_size
 
         else:
-            raise Exception('Please choose a proper mode for data loading')
+            raise ValueError('Please choose a one of the following modes: train, val, test')
