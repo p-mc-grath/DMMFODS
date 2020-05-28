@@ -564,7 +564,8 @@ def save_data_in_batch(config, buckets, mode):
 
     Arguments:
         config: as specified in utils
-        buckets: directory names in config.dir.data.root you want to include
+        buckets: directory names in config.dir.data.root you want to include 
+                    as list of strings or one string
         mode: one of train, val, test
     '''
 
@@ -572,11 +573,14 @@ def save_data_in_batch(config, buckets, mode):
 
     if not mode in final_dirs:
         raise ValueError('mode must be one of train, val, test. You gave ' + mode)
+    
+    if type(buckets) is str:
+        buckets = [buckets]
 
     # load all file paths
     files = []
-    for bucket in enumerate(buckets):
-        tf_data_dirs = listdir(join(config.dir.data.root, bucket))
+    for bucket in buckets:
+        tf_data_dirs = [tfd for tfd in listdir(join(config.dir.data.root, bucket)) if tfd.startswith('tf_')]
         for tf_data_dir in tf_data_dirs:
             current_dir_no_root = join(bucket, tf_data_dir, 'images')                           
             current_dir = join(config.dir.data.root, current_dir_no_root)
