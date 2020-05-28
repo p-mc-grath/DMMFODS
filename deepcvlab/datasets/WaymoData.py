@@ -91,7 +91,7 @@ class WaymoDataset(Dataset):
         batch = torch.load(join(self.root, self.files[idx]))
 
         image_batch = batch[:,:3,:,:]   
-        lidar_batch = batch[:,3,:,:]
+        lidar_batch = batch[:,3,:,:].unsqueeze(1)                           
         ht_map_batch = batch[:,4:,:,:]
     
         return image_batch, lidar_batch, ht_map_batch
