@@ -605,12 +605,15 @@ def save_data_in_batch(config, buckets, mode):
 
             # create lidar and heatmap paths
             path, image = files[idx].split('/img_')
-            lidar_file_path = join(path, 'lidar_img_' + image)
-            heat_map_file_path = join(path, 'heat_map_img_' + image)
+            lidar_file_path = join(config.dir.data.root, path, 'lidar_img_' + image)
+            heat_map_file_path = join(config.dir.data.root, path, 'heat_map_img_' + image)
 
+            if not isfile(lidar_file_path) or not isfile(heat_map_file_path):
+                continue
+            
             vec[j,:3,:,:] = torch.load(join(config.dir.data.root, files[idx]))
-            vec[j,3,:,:] = torch.load(join(config.dir.data.root, lidar_file_path))
-            vec[j,4:,:,:] = torch.load(join(config.dir.data.root, heat_map_file_path))
+            vec[j,3,:,:] = torch.load(lidar_file_path)
+            vec[j,4:,:,:] = torch.load(heat_map_file_path)
         save_path = join(save_dir, str(i%99))
         torch.save(vec, save_path)
     print(i, 'batches serialized')
