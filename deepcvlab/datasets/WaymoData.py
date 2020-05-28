@@ -45,7 +45,7 @@ class WaymoDataset(Dataset):
                 subdirs = listdir(join(self.root, mode))
                 for subdir in subdirs:
                     batched_data = listdir(join(self.root, mode, subdir))
-                    self.files + [join(mode, subdir, batch) for batch in batched_data]
+                    self.files += [join(mode, subdir, batch) for batch in batched_data]
 
 
             # single files

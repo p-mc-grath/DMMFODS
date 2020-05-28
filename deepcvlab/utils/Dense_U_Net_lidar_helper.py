@@ -115,7 +115,7 @@ def create_config(host_dir):
         'pin_memory': True,                                                 
         'num_workers': 4,
         'async_loading': True,                                              
-        'drop_last': True
+        'drop_last': False                                              # needs to be False if batch_size None
     }
 
     # optimizer params; currently torch.optim.Adam default
