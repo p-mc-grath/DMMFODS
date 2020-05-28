@@ -608,9 +608,6 @@ def save_data_in_batch(config, buckets, mode):
             lidar_file_path = join(config.dir.data.root, path, 'lidar_img_' + image)
             heat_map_file_path = join(config.dir.data.root, path, 'heat_map_img_' + image)
 
-            if not isfile(lidar_file_path) or not isfile(heat_map_file_path):
-                continue
-            
             vec[j,:3,:,:] = torch.load(join(config.dir.data.root, files[idx]))
             vec[j,3,:,:] = torch.load(lidar_file_path)
             vec[j,4:,:,:] = torch.load(heat_map_file_path)
