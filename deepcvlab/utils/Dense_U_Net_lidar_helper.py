@@ -604,9 +604,9 @@ def save_data_in_batch(config, buckets, mode):
             idx = indeces[i*config.dataset.batch_size + j]
 
             # create lidar and heatmap paths
-            path, image = files[idx].split('/img_')
-            lidar_file_path = join(config.dir.data.root, path, 'lidar_img_' + image)
-            heat_map_file_path = join(config.dir.data.root, path, 'heat_map_img_' + image)
+            path, image = files[idx].split('images/img_')
+            lidar_file_path = join(config.dir.data.root, path, 'lidar/lidar_img_' + image)
+            heat_map_file_path = join(config.dir.data.root, path, 'heat_maps/heat_map_img_' + image)
 
             vec[j,:3,:,:] = torch.load(join(config.dir.data.root, files[idx]))
             vec[j,3,:,:] = torch.load(lidar_file_path)
