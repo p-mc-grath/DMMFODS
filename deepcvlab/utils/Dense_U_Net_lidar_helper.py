@@ -279,37 +279,54 @@ def compute_IoU_whole_img_per_class(ground_truth_map, estimated_heat_map, thresh
     '''
     Custom Intersection over Union function 
     Due output format it is not possible to compute IoU per bounding box
+    Arguments:
+        gt_map: 
+        estimated_heat_map: 
+            -> struct of these must be exactly the same: class, y, x
+        threshold: must be in [0,1] values above the threshold are set to 1, below to zero
     :return:
-        IoU_per_class: special case: union == 0 -> iou=0
+        IoU_per_class: special case: union == 0 -> iou=nan!!!
     '''
     # make maps boolean
     est_bool = estimated_heat_map >= threshold
-    gt_bool = ground_truth_map >= threshold                                             # TODO alternative: == 1??
+    gt_bool = ground_truth_map >= threshold                                             
 
-    # boolean magic
-    intersection = torch.sum(est_bool & gt_bool, axis=(1,2))
-    union = torch.sum(est_bool | gt_bool, axis=(1,2))
+    # boolean magic: intersection of a bb is equivalent with the and operation; union with the or operation
+    # note: IoU is only computed over detected BBs -> these values are True in the boolean maps 
+    #       this is why and and or work
+    # casting vec to float; might be long -> division by zero results in a runtime error vs. float: 0/0 = nan
+    intersection = torch.sum(est_bool & gt_bool, axis=(1,2)).float()
+    union = torch.sum(est_bool | gt_bool, axis=(1,2)).float()
     
-    # in case union is 0 -> division of tensors returns nan -> set iou=0
+    # if there is no BB in gt e.g. most images do not contain pedestrians or cyclists
+    # -> union might be 0, leading to the following:
+    # 0/0 = nan; 1/0 = inf -> not possible as i <= u
+    # As these values would not occur with normal IoU computation, they are left to be dealt with later
     iou_per_class = intersection/union
-    iou_per_class[torch.isnan(iou_per_class)] = 0
 
     return iou_per_class
 
 def compute_IoU_whole_img_batch(ground_truth_map_batch, estimated_heat_map_batch, threshold=0.7):
     '''
+    Aggregates whole image per sample and class
+
     Arguments:
-        threshold: int
+        threshold: value [0,1] representing cutoff; values are set to if above = 1 ; below = 0
         batches: of form: instance in batch, class, y, x
+    return:
+        whole image IoU per sample and class
+        when IoU = 0/0 returns nan
     '''
-    # alocate space
+    # alocate space of size: samples x classes
     iou_per_instance_per_class = torch.zeros(ground_truth_map_batch.shape[0], ground_truth_map_batch.shape[1])
 
-    # IoU per isntance
+    # IoU per instance:  compute whole image IoU for each instance separately
     for i, (gt_map, h_map) in enumerate(zip(ground_truth_map_batch, estimated_heat_map_batch)):
         iou_per_instance_per_class[i, :] = compute_IoU_whole_img_per_class(gt_map, h_map, threshold)
 
-    return torch.mean(iou_per_instance_per_class, axis=0)
+    # average IoU over all samples -> return class-wise IoU
+    # NaN values do not carry any info so they are ignored
+    return iou_per_instance_per_class
 
 ############################################################################
 # converting waymo tfrecord files to pytorch and helpers

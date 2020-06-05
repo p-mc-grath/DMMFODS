@@ -2,6 +2,7 @@ import os
 import logging
 import torch
 import warnings
+import numpy as np
 from torch.backends import cudnn
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -203,7 +204,8 @@ class Dense_U_Net_lidar_Agent:
             epoch_loss += [epoch_loss[-1] + loss_per_class]
 
             # whole image IoU per class
-            iou_per_class = utils.compute_IoU_whole_img_batch(prediction.detach(), ht_map.detach(), self.config.agent.iou_threshold)
+            iou_per_instance_per_class = utils.compute_IoU_whole_img_batch(prediction.detach(), ht_map.detach(), self.config.agent.iou_threshold)
+            iou_per_class = torch.tensor(np.nanmean(iou_per_instance_per_class, axis=0))
             epoch_iou += [epoch_iou[-1] + iou_per_class]
 
             # backprop
@@ -267,7 +269,8 @@ class Dense_U_Net_lidar_Agent:
             epoch_loss += [epoch_loss[-1] + loss_per_class]
             
             # whole image IoU per class
-            iou_per_class = utils.compute_IoU_whole_img_batch(prediction.detach(), ht_map.detach(), self.config.agent.iou_threshold)
+            iou_per_instance_per_class = utils.compute_IoU_whole_img_batch(prediction.detach(), ht_map.detach(), self.config.agent.iou_threshold)
+            iou_per_class = torch.tensor(np.nanmean(iou_per_instance_per_class, axis=0))
             epoch_iou += [epoch_iou[-1] + iou_per_class]
  
         self.logger.info("Training at epoch-" + str(self.current_epoch) + " | " + "average loss: " + str(
