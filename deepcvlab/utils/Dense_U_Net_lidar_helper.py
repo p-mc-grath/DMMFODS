@@ -44,6 +44,10 @@ def save_json_file(filepath, save_file, indent=None):
     print('Successfully saved ' + filepath)
     return 1
 
+############################################################################
+# Config functions
+############################################################################
+
 def load_config(loading_dir, file_name):
     '''
     tries to load config from json file
@@ -275,6 +279,10 @@ def create_ground_truth_maps(ground_truth, width_img=1920, height_img=1280):
         
     return torch.Tensor(maps)     
 
+############################################################################
+# Metric functions
+############################################################################
+
 def compute_IoU_whole_img_per_class(ground_truth_map, estimated_heat_map, threshold):
     '''
     Custom Intersection over Union function 
@@ -327,6 +335,39 @@ def compute_IoU_whole_img_batch(ground_truth_map_batch, estimated_heat_map_batch
     # average IoU over all samples -> return class-wise IoU
     # NaN values do not carry any info so they are ignored
     return iou_per_instance_per_class
+
+def compute_accuracy(ground_truth, prediction, threshold=0.7):
+    '''
+    applies threshold to both ground truth and prediction
+    computes accuracy score accordingly: (TP+TN)/(All)
+    
+    Arguments:
+        ground_truth: ground truth map of one sample/ batch of maps: classes, y, x
+        prediction: heatmap of one sample/ batch of maps: classes, y, x
+        threshold: used to threshold both prediction and gt
+    
+    return:
+        class-wise accuracy
+    '''
+    # allowing single sample as well as batches to be passed to this function
+    if len(ground_truth.shape) == 3:
+        axes = (1,2)
+        num_classes = ground_truth.shape[0]
+    elif len(ground_truth.shape) == 4:
+        axes = (0,2,3)
+        num_classes = ground_truth.shape[1]
+    else:
+        raise ValueError('Number of dimensions must be either 3 or 4, you gave ' + str(len(ground_truth.shape)))
+    
+    # threshold the maps into binary representations
+    bin_pred = prediction >= threshold
+    bin_gt = ground_truth >= threshold   
+
+    # class-wise accuracy computation
+    # number of values that are equal in both tensors divided by the number of elements per class
+    acc = torch.sum(bin_pred == bin_gt, axis=axes)/(ground_truth.numel()/ num_classes)
+    
+    return acc
 
 ############################################################################
 # converting waymo tfrecord files to pytorch and helpers
