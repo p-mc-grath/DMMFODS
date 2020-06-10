@@ -31,11 +31,13 @@ class WaymoDataset(Dataset):
        
         # load from json file if possible
         if isfile(json_file_path):
+            print('Loading dataset from file: ' + mode + '_' + config.dataset.file_list_name)
             self.files = load_json_file(json_file_path)
 
         # crawl directories
         else:
-            
+            print('Creating dataset from scratch')
+
             # batches
             if self.data_is_batched:
                 if config.loader.batch_size is not None:
