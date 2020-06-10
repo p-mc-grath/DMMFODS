@@ -189,7 +189,7 @@ class Dense_U_Net_lidar_Agent:
         epoch_loss = [torch.zeros(self.config.model.num_classes).to(self.device)]
         epoch_iou = [torch.zeros(self.config.model.num_classes)]
         epoch_iou_nans = [torch.zeros(self.config.model.num_classes)]
-        epoch_acc = [torch.zeros(self.config.model.num_classes)]
+        epoch_acc = [torch.zeros(self.config.model.num_classes).to(self.device)]
         for image, lidar, ht_map in tqdm_batch:
             # push to gpu if possible
             if self.cuda:
@@ -267,7 +267,7 @@ class Dense_U_Net_lidar_Agent:
         epoch_loss = [torch.zeros(self.config.model.num_classes).to(self.device)]
         epoch_iou = [torch.zeros(self.config.model.num_classes)]
         epoch_iou_nans = [torch.zeros(self.config.model.num_classes)]
-        epoch_acc = [torch.zeros(self.config.model.num_classes)]
+        epoch_acc = [torch.zeros(self.config.model.num_classes).to(self.device)]
         for image, lidar, ht_map in tqdm_batch:
             # push to gpu if possible
             if self.cuda:
