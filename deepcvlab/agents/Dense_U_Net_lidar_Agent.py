@@ -236,7 +236,7 @@ class Dense_U_Net_lidar_Agent:
                 'iou vehicle': iou_per_class[0],
                 'iou pedestrian': iou_per_class[1],
                 'iou cyclist': iou_per_class[2],
-                '#NaNs all': torch.sum(epoch_iou_nans)
+                '#NaNs all': torch.sum(epoch_iou_nans[-1])
             }
             self.summary_writer.add_scalars("Training_Info/", info_per_class_dict, self.current_iteration)
 
@@ -248,7 +248,7 @@ class Dense_U_Net_lidar_Agent:
 
         self.logger.info("Training at epoch-" + str(self.current_epoch) + " | " + "average loss: " + str(
              epoch_loss[-1]/len(epoch_loss)) + " | " + "average IoU: " + str(epoch_iou[-1]/len(epoch_iou)) +
-             ' | ' + '#NaNs V P C ' + str(epoch_iou_nans) + ' | ' + 'avg acc: ' + str(epoch_acc[-1]/len(epoch_acc)))
+             ' | ' + '#NaNs V P C ' + str(epoch_iou_nans[-1]) + ' | ' + 'avg acc: ' + str(epoch_acc[-1]/len(epoch_acc)))
 
     def validate(self):
         """
@@ -296,7 +296,7 @@ class Dense_U_Net_lidar_Agent:
 
         self.logger.info("Validation at epoch-" + str(self.current_epoch) + " | " + "average loss: " + str(
              epoch_loss[-1]/len(epoch_loss)) + " | " + "average IoU: " + str(epoch_iou[-1]/len(epoch_iou)) +
-             ' | ' + '#NaNs V P C ' + str(epoch_iou_nans) + ' | ' + 'avg acc: ' + str(epoch_acc[-1]/len(epoch_acc)))
+             ' | ' + '#NaNs V P C ' + str(epoch_iou_nans[-1]) + ' | ' + 'avg acc: ' + str(epoch_acc[-1]/len(epoch_acc)))
 
         tqdm_batch.close()
         
