@@ -159,7 +159,7 @@ class Dense_U_Net_lidar_Agent:
         save checkpoints after each epoch
         save best checkpoints in separate file
         '''
-        print('Starting training on:', datetime.now())
+        print('Starting training at:', datetime.now())
         for epoch in range(self.current_epoch, self.config.agent.max_epoch):
             self.current_epoch = epoch
             self.train_one_epoch()

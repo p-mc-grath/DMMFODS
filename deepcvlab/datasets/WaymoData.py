@@ -36,7 +36,7 @@ class WaymoDataset(Dataset):
 
         # crawl directories
         else:
-            print('Creating dataset from scratch')
+            print('Creating ' + mode + ' dataset from scratch')
 
             # batches
             if self.data_is_batched:
