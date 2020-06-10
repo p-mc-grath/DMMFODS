@@ -36,7 +36,6 @@ class Dense_U_Net_lidar_Agent:
         self.config = self.model.config
 
         # dataloader
-        print('Creation of Dataset started')
         self.data_loader = WaymoDataset_Loader(self.config)
 
         # pixel-wise cross-entropy loss 
@@ -160,13 +159,14 @@ class Dense_U_Net_lidar_Agent:
         save checkpoints after each epoch
         save best checkpoints in separate file
         '''
+        print('Starting training on:', datetime.now())
         for epoch in range(self.current_epoch, self.config.agent.max_epoch):
             self.current_epoch = epoch
             self.train_one_epoch()
 
             with torch.no_grad():
                 avg_val_acc_per_class = self.validate()
-            val_acc = torch.mean(avg_val_acc_per_class)
+            val_acc = sum(avg_val_acc_per_class)/len(avg_val_acc_per_class)
             is_best = val_acc > self.best_val_acc
             if is_best:
                 self.best_val_acc = val_acc
@@ -186,10 +186,11 @@ class Dense_U_Net_lidar_Agent:
         self.model.train()
 
         current_batch = 0
-        epoch_loss = [torch.zeros(self.config.model.num_classes).to(self.device)]
-        epoch_iou = [torch.zeros(self.config.model.num_classes)]
-        epoch_iou_nans = [torch.zeros(self.config.model.num_classes)]
-        epoch_acc = [torch.zeros(self.config.model.num_classes).to(self.device)]
+        number_of_batches = self.data_loader.train_loader.dataset.__len__()
+        epoch_loss = torch.zeros((number_of_batches, self.config.model.num_classes)).to(self.device)
+        epoch_iou = torch.zeros((number_of_batches, self.config.model.num_classes))
+        epoch_iou_nans = torch.zeros((number_of_batches, self.config.model.num_classes))
+        epoch_acc = torch.zeros((number_of_batches, self.config.model.num_classes)).to(self.device)
         for image, lidar, ht_map in tqdm_batch:
             # push to gpu if possible
             if self.cuda:
@@ -203,18 +204,18 @@ class Dense_U_Net_lidar_Agent:
             # pixel-wise loss
             current_loss = self.loss(prediction, ht_map)
             loss_per_class = torch.sum(current_loss.detach(), dim=(0,2,3))
-            epoch_loss += [epoch_loss[-1] + loss_per_class]
+            epoch_loss[current_batch, :] = loss_per_class
 
             # whole image IoU per class; not taking nans into acc for the mean value; counting the nans separately
             iou_per_instance_per_class = utils.compute_IoU_whole_img_batch(prediction.detach(), ht_map.detach(), self.config.agent.iou_threshold)
             iou_per_class = torch.tensor(np.nanmean(iou_per_instance_per_class, axis=0))
             iou_per_class[torch.isnan(iou_per_class)] = 0
-            epoch_iou += [epoch_iou[-1] + iou_per_class]
-            epoch_iou_nans += [epoch_iou_nans[-1] + torch.sum(torch.isnan(iou_per_instance_per_class), axis=0)]
+            epoch_iou[current_batch, :] = iou_per_class
+            epoch_iou_nans[current_batch, :] = torch.sum(torch.isnan(iou_per_instance_per_class), axis=0)
             
             # compute class-wise accuracy of current batch
             acc_per_class = utils.compute_accuracy(ht_map.detach(), prediction.detach(), self.config.agent.iou_threshold)
-            epoch_acc += [epoch_acc[-1] + acc_per_class]
+            epoch_acc[current_batch, :] = acc_per_class
 
             # backprop
             self.optimizer.zero_grad()
@@ -246,9 +247,14 @@ class Dense_U_Net_lidar_Agent:
         if self.config.optimizer.lr_scheduler.want:
             self.lr_scheduler.step()
 
-        self.logger.info("Training at epoch-" + str(self.current_epoch) + " | " + "average loss: " + str(
-             epoch_loss[-1]/len(epoch_loss)) + " | " + "average IoU: " + str(epoch_iou[-1]/len(epoch_iou)) +
-             ' | ' + '#NaNs V P C ' + str(epoch_iou_nans[-1]) + ' | ' + 'avg acc: ' + str(epoch_acc[-1]/len(epoch_acc)))
+        avg_epoch_loss = torch.sum(epoch_loss, axis=0).tolist()
+        avg_epoch_iou = torch.sum(epoch_iou, axis=0).tolist()
+        cum_epoch_nans = torch.sum(epoch_iou_nans, axis=0).tolist()
+        avg_epoch_acc = torch.sum(epoch_acc, axis=0).tolist()
+        
+        self.logger.info("Training at Epoch-" + str(self.current_epoch) + " | " + "Average Loss: " + str(
+             avg_epoch_loss) + " | " + "Average IoU: " + str(avg_epoch_iou) + ' | ' + 'Number of NaNs: ' + str(
+                 cum_epoch_nans) + ' | ' + 'Average Accuracy: ' + str(avg_epoch_acc))
 
     def validate(self):
         """
@@ -264,10 +270,12 @@ class Dense_U_Net_lidar_Agent:
         # set the model in training mode
         self.model.eval()
 
-        epoch_loss = [torch.zeros(self.config.model.num_classes).to(self.device)]
-        epoch_iou = [torch.zeros(self.config.model.num_classes)]
-        epoch_iou_nans = [torch.zeros(self.config.model.num_classes)]
-        epoch_acc = [torch.zeros(self.config.model.num_classes).to(self.device)]
+        current_batch = 0
+        number_of_batches = self.data_loader.valid_loader.dataset.__len__()
+        epoch_loss = torch.zeros((number_of_batches, self.config.model.num_classes)).to(self.device)
+        epoch_iou = torch.zeros((number_of_batches, self.config.model.num_classes))
+        epoch_iou_nans = torch.zeros((number_of_batches, self.config.model.num_classes))
+        epoch_acc = torch.zeros((number_of_batches, self.config.model.num_classes)).to(self.device)
         for image, lidar, ht_map in tqdm_batch:
             # push to gpu if possible
             if self.cuda:
@@ -281,26 +289,32 @@ class Dense_U_Net_lidar_Agent:
             # pixel-wise loss
             current_loss = self.loss(prediction, ht_map)
             loss_per_class = torch.sum(current_loss.detach(), dim=(0,2,3))
-            epoch_loss += [epoch_loss[-1] + loss_per_class]
+            epoch_loss[current_batch, :] = loss_per_class
             
             # whole image IoU per class; not taking nans into acc for the mean value; counting the nans separately
             iou_per_instance_per_class = utils.compute_IoU_whole_img_batch(prediction.detach(), ht_map.detach(), self.config.agent.iou_threshold)
             iou_per_class = torch.tensor(np.nanmean(iou_per_instance_per_class, axis=0))
             iou_per_class[torch.isnan(iou_per_class)] = 0
-            epoch_iou += [epoch_iou[-1] + iou_per_class]
-            epoch_iou_nans += [epoch_iou_nans[-1] + torch.sum(torch.isnan(iou_per_instance_per_class), axis=0)]
+            epoch_iou[current_batch, :] = iou_per_class
+            epoch_iou_nans[current_batch, :] = torch.sum(torch.isnan(iou_per_instance_per_class), axis=0)
 
             # compute class-wise accuracy of current batch
-            epoch_acc += [epoch_acc[-1] + 
-                utils.compute_accuracy(ht_map.detach(), prediction.detach(), self.config.agent.iou_threshold)]
+            epoch_acc[current_batch, :] = utils.compute_accuracy(ht_map.detach(), prediction.detach(), self.config.agent.iou_threshold)
 
-        self.logger.info("Validation at epoch-" + str(self.current_epoch) + " | " + "average loss: " + str(
-             epoch_loss[-1]/len(epoch_loss)) + " | " + "average IoU: " + str(epoch_iou[-1]/len(epoch_iou)) +
-             ' | ' + '#NaNs V P C ' + str(epoch_iou_nans[-1]) + ' | ' + 'avg acc: ' + str(epoch_acc[-1]/len(epoch_acc)))
+            current_batch += 1
+
+        avg_epoch_loss = torch.sum(epoch_loss, axis=0).tolist()
+        avg_epoch_iou = torch.sum(epoch_iou, axis=0).tolist()
+        cum_epoch_nans = torch.sum(epoch_iou_nans, axis=0).tolist()
+        avg_epoch_acc = torch.sum(epoch_acc, axis=0).tolist()
+        
+        self.logger.info("Validation at Epoch-" + str(self.current_epoch) + " | " + "Average Loss: " + str(
+             avg_epoch_loss) + " | " + "Average IoU: " + str(avg_epoch_iou) + ' | ' + 'Number of NaNs: ' + str(
+                 cum_epoch_nans) + ' | ' + 'Average Accuracy: ' + str(avg_epoch_acc))
 
         tqdm_batch.close()
         
-        return epoch_acc[-1]/len(epoch_acc)
+        return avg_epoch_acc
 
     def finalize(self):
         """
