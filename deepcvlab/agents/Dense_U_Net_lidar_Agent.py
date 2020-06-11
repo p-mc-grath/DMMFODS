@@ -56,7 +56,8 @@ class Dense_U_Net_lidar_Agent:
 
         # initialize counters; updated in load_checkpoint
         self.current_epoch = 0
-        self.current_iteration = 0
+        self.current_train_iteration = 0
+        self.current_val_iteration = 0
         self.best_val_acc = 0
 
         # if cuda is available export model to gpu
@@ -76,10 +77,11 @@ class Dense_U_Net_lidar_Agent:
             self.load_checkpoint()
 
         # Tensorboard Writers
-        Path(self.config.dir.train_summary).mkdir(exist_ok=True)
-        self.train_summary_writer = SummaryWriter(log_dir=self.config.dir.train_summary, comment='Dense_U_Net')
-        Path(self.config.dir.val_summary).mkdir(exist_ok=True)
-        self.val_summary_writer = SummaryWriter(log_dir=self.config.dir.val_summary, comment='Dense_U_Net')
+        Path(self.config.dir.summary).mkdir(exist_ok=True)
+        Path(self.config.dir.summary.train).mkdir(exist_ok=True)
+        Path(self.config.dir.summary.val).mkdir(exist_ok=True)
+        self.train_summary_writer = SummaryWriter(log_dir=self.config.dir.summary.train, comment='Dense_U_Net')
+        self.val_summary_writer = SummaryWriter(log_dir=self.config.dir.summary.val, comment='Dense_U_Net')
 
     def save_checkpoint(self, filename='checkpoint.pth.tar', is_best=False):
         """
@@ -91,7 +93,8 @@ class Dense_U_Net_lidar_Agent:
         #aggregate important data
         state = {
             self.config.agent.checkpoint.epoch: self.current_epoch,
-            self.config.agent.checkpoint.iteration: self.current_iteration,
+            self.config.agent.checkpoint.train_iteration: self.current_train_iteration,
+            self.config.agent.checkpoint.val_iteration: self.current_val_iteration,
             self.config.agent.checkpoint.best_val_acc: self.best_val_acc,
             self.config.agent.checkpoint.state_dict: self.model.state_dict(),
             self.config.agent.checkpoint.optimizer: self.optimizer.state_dict()
@@ -124,8 +127,10 @@ class Dense_U_Net_lidar_Agent:
             checkpoint = torch.load(filepath)
 
             self.current_epoch = checkpoint[self.config.agent.checkpoint.epoch]
-            self.current_iteration = checkpoint[
-                self.config.agent.checkpoint.iteration]
+            self.current_train_iteration = checkpoint[
+                self.config.agent.checkpoint.train_iteration]
+            self.current_val_iteration = checkpoint[
+                self.config.agent.checkpoint.val_iteration]
             self.best_val_acc = checkpoint[
                 self.config.agent.checkpoint.best_val_acc]
             self.model.load_state_dict(checkpoint[
@@ -230,7 +235,7 @@ class Dense_U_Net_lidar_Agent:
                 'loss pedestrian': loss_per_class[1],
                 'loss cyclist': loss_per_class[2]
             }
-            self.train_summary_writer.add_scalars("Train: Loss/", loss_per_class_dict, self.current_iteration)
+            self.train_summary_writer.add_scalars("Training Loss", loss_per_class_dict, self.current_train_iteration)
 
             acc_iou_per_class_dict = {
                 'acc vehicle': acc_per_class[0],
@@ -241,10 +246,10 @@ class Dense_U_Net_lidar_Agent:
                 'iou cyclist': iou_per_class[2],
                 '#NaNs all': torch.sum(epoch_iou_nans[current_batch, :])
             }
-            self.train_summary_writer.add_scalars(" Train: Accuracy and IoU/", acc_iou_per_class_dict, self.current_iteration)
+            self.train_summary_writer.add_scalars("Training Accuracy|IoU", acc_iou_per_class_dict, self.current_train_iteration)
 
             # counters
-            self.current_iteration += 1
+            self.current_train_iteration += 1
             current_batch += 1
 
         tqdm_batch.close()
@@ -314,7 +319,7 @@ class Dense_U_Net_lidar_Agent:
                 'loss pedestrian': loss_per_class[1],
                 'loss cyclist': loss_per_class[2]
             }
-            self.val_summary_writer.add_scalars("Val: Loss/", loss_per_class_dict, self.current_iteration)
+            self.val_summary_writer.add_scalars("Validation Loss", loss_per_class_dict, self.current_val_iteration)
 
             acc_iou_per_class_dict = {
                 'acc vehicle': acc_per_class[0],
@@ -325,8 +330,10 @@ class Dense_U_Net_lidar_Agent:
                 'iou cyclist': iou_per_class[2],
                 '#NaNs all': torch.sum(epoch_iou_nans[current_batch, :])
             }
-            self.val_summary_writer.add_scalars(" Val: Accuracy and IoU/", acc_iou_per_class_dict, self.current_iteration)
+            self.val_summary_writer.add_scalars("Validation Accuracy|IoU", acc_iou_per_class_dict, self.current_val_iteration)
 
+            # counters
+            self.current_val_iteration += 1
             current_batch += 1
 
         avg_epoch_loss = torch.sum(epoch_loss, axis=0).tolist()
