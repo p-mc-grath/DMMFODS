@@ -112,6 +112,13 @@ def create_config(host_dir):
         'memory_efficient': False
     }
 
+    config['loss'] = {                                                      
+        'alpha': 1,                                                         # default value focal loss
+        'gamma': 2,                                                         # default value focal loss
+        'logits': True,
+        'reduce': False
+    }
+
     # loader params
     config['loader'] = {
         'mode': 'train',
