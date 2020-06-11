@@ -227,23 +227,28 @@ class Dense_U_Net_lidar_Agent:
             current_loss.backward(torch.ones_like(current_loss.detach(), device=self.device))                            # , retain_graph=True?
             self.optimizer.step()
 
-            # logging for visualization during training
-            loss_per_class_dict = {
-                'loss vehicle': loss_per_class[0],
-                'loss pedestrian': loss_per_class[1],
-                'loss cyclist': loss_per_class[2]
+            # logging for visualization during training: separate plots for loss, acc, iou | each-classwise + overall
+            loss_dict = {
+                'Vehicle': loss_per_class[0],
+                'Pedestrian': loss_per_class[1],
+                'Cyclist': loss_per_class[2],
+                'Overall': torch.mean(loss_per_class)
             }
-            self.train_summary_writer.add_scalars("Loss/train", loss_per_class_dict, self.current_train_iteration)
-
-            acc_iou_per_class_dict = {
-                'acc vehicle': acc_per_class[0],
-                'acc pedestrian': acc_per_class[1],
-                'acc cyclist': acc_per_class[2],
-                'iou vehicle': iou_per_class[0],
-                'iou pedestrian': iou_per_class[1],
-                'iou cyclist': iou_per_class[2]
+            self.train_summary_writer.add_scalars("Training/Loss", loss_dict, self.current_train_iteration)
+            acc_dict = {
+                'Vehicle': acc_per_class[0],
+                'Pedestrian': acc_per_class[1],
+                'Cyclist': acc_per_class[2],
+                'Overall': torch.mean(acc_per_class)
             }
-            self.train_summary_writer.add_scalars("Accuracy/train", acc_iou_per_class_dict, self.current_train_iteration)
+            self.train_summary_writer.add_scalars("Training/Accuracy", acc_dict, self.current_train_iteration)
+            iou_dict = {
+                'Vehicle': iou_per_class[0],
+                'Pedestrian': iou_per_class[1],
+                'Cyclist': iou_per_class[2],
+                'Overall': torch.mean(iou_per_class)
+            }
+            self.train_summary_writer.add_scalars("Training/IoU", iou_dict, self.current_train_iteration)
 
             # counters
             self.current_train_iteration += 1
@@ -255,10 +260,10 @@ class Dense_U_Net_lidar_Agent:
         if self.config.optimizer.lr_scheduler.want:
             self.lr_scheduler.step()
 
-        avg_epoch_loss = torch.sum(epoch_loss, axis=0).tolist()
-        avg_epoch_iou = torch.sum(epoch_iou, axis=0).tolist()
+        avg_epoch_loss = torch.mean(epoch_loss, axis=0).tolist()
+        avg_epoch_iou = torch.mean(epoch_iou, axis=0).tolist()
         cum_epoch_nans = torch.sum(epoch_iou_nans, axis=0).tolist()
-        avg_epoch_acc = torch.sum(epoch_acc, axis=0).tolist()
+        avg_epoch_acc = torch.mean(epoch_acc, axis=0).tolist()
         
         self.logger.info("Training at Epoch-" + str(self.current_epoch) + " | " + "Average Loss: " + str(
              avg_epoch_loss) + " | " + "Average IoU: " + str(avg_epoch_iou) + ' | ' + 'Number of NaNs: ' + str(
@@ -310,32 +315,37 @@ class Dense_U_Net_lidar_Agent:
             acc_per_class = utils.compute_accuracy(ht_map.detach(), prediction.detach(), self.config.agent.iou_threshold)
             epoch_acc[current_batch, :] = acc_per_class
 
-            # logging for visualization during training
-            loss_per_class_dict = {
-                'loss vehicle': loss_per_class[0],
-                'loss pedestrian': loss_per_class[1],
-                'loss cyclist': loss_per_class[2]
+            # logging for visualization during training: separate plots for loss, acc, iou | each-classwise + overall
+            loss_dict = {
+                'Vehicle': loss_per_class[0],
+                'Pedestrian': loss_per_class[1],
+                'Cyclist': loss_per_class[2],
+                'Overall': torch.mean(loss_per_class)
             }
-            self.val_summary_writer.add_scalars("Loss/val", loss_per_class_dict, self.current_val_iteration)
-
-            acc_iou_per_class_dict = {
-                'acc vehicle': acc_per_class[0],
-                'acc pedestrian': acc_per_class[1],
-                'acc cyclist': acc_per_class[2],
-                'iou vehicle': iou_per_class[0],
-                'iou pedestrian': iou_per_class[1],
-                'iou cyclist': iou_per_class[2]
+            self.val_summary_writer.add_scalars("Validation/Loss", loss_dict, self.current_val_iteration)
+            acc_dict = {
+                'Vehicle': acc_per_class[0],
+                'Pedestrian': acc_per_class[1],
+                'Cyclist': acc_per_class[2],
+                'Overall': torch.mean(acc_per_class)
             }
-            self.val_summary_writer.add_scalars("Accuracy/val", acc_iou_per_class_dict, self.current_val_iteration)
+            self.val_summary_writer.add_scalars("Validation/Accuracy", acc_dict, self.current_val_iteration)
+            iou_dict = {
+                'Vehicle': iou_per_class[0],
+                'Pedestrian': iou_per_class[1],
+                'Cyclist': iou_per_class[2],
+                'Overall': torch.mean(iou_per_class)
+            }
+            self.val_summary_writer.add_scalars("Validation/IoU", iou_dict, self.current_val_iteration)
 
             # counters
             self.current_val_iteration += 1
             current_batch += 1
 
-        avg_epoch_loss = torch.sum(epoch_loss, axis=0).tolist()
-        avg_epoch_iou = torch.sum(epoch_iou, axis=0).tolist()
+        avg_epoch_loss = torch.mean(epoch_loss, axis=0).tolist()
+        avg_epoch_iou = torch.mean(epoch_iou, axis=0).tolist()
         cum_epoch_nans = torch.sum(epoch_iou_nans, axis=0).tolist()
-        avg_epoch_acc = torch.sum(epoch_acc, axis=0).tolist()
+        avg_epoch_acc = torch.mean(epoch_acc, axis=0).tolist()
         
         self.logger.info("Validation at Epoch-" + str(self.current_epoch) + " | " + "Average Loss: " + str(
              avg_epoch_loss) + " | " + "Average IoU: " + str(avg_epoch_iou) + ' | ' + 'Number of NaNs: ' + str(
