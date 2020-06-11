@@ -243,8 +243,7 @@ class Dense_U_Net_lidar_Agent:
                 'acc cyclist': acc_per_class[2],
                 'iou vehicle': iou_per_class[0],
                 'iou pedestrian': iou_per_class[1],
-                'iou cyclist': iou_per_class[2],
-                '#NaNs all': torch.sum(epoch_iou_nans[current_batch, :])
+                'iou cyclist': iou_per_class[2]
             }
             self.train_summary_writer.add_scalars("Accuracy/train", acc_iou_per_class_dict, self.current_train_iteration)
 
@@ -327,8 +326,7 @@ class Dense_U_Net_lidar_Agent:
                 'acc cyclist': acc_per_class[2],
                 'iou vehicle': iou_per_class[0],
                 'iou pedestrian': iou_per_class[1],
-                'iou cyclist': iou_per_class[2],
-                '#NaNs all': torch.sum(epoch_iou_nans[current_batch, :])
+                'iou cyclist': iou_per_class[2]
             }
             self.val_summary_writer.add_scalars("Accuracy/val", acc_iou_per_class_dict, self.current_val_iteration)
 
