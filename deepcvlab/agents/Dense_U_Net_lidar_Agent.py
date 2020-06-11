@@ -226,10 +226,14 @@ class Dense_U_Net_lidar_Agent:
             self.optimizer.step()
 
             # logging for visualization during training
-            info_per_class_dict = {
+            loss_per_class_dict = {
                 'loss vehicle': loss_per_class[0],
                 'loss pedestrian': loss_per_class[1],
-                'loss cyclist': loss_per_class[2],
+                'loss cyclist': loss_per_class[2]
+            }
+            self.train_summary_writer.add_scalars("Train: Loss/", loss_per_class_dict, self.current_iteration)
+
+            acc_iou_per_class_dict = {
                 'acc vehicle': acc_per_class[0],
                 'acc pedestrian': acc_per_class[1],
                 'acc cyclist': acc_per_class[2],
@@ -238,7 +242,7 @@ class Dense_U_Net_lidar_Agent:
                 'iou cyclist': iou_per_class[2],
                 '#NaNs all': torch.sum(epoch_iou_nans[current_batch, :])
             }
-            self.train_summary_writer.add_scalars("Training_Info/", info_per_class_dict, self.current_iteration)
+            self.train_summary_writer.add_scalars(" Train: Accuracy and IoU/", acc_iou_per_class_dict, self.current_iteration)
 
             # counters
             self.current_iteration += 1
@@ -306,10 +310,14 @@ class Dense_U_Net_lidar_Agent:
             epoch_acc[current_batch, :] = acc_per_class
 
             # logging for visualization during training
-            info_per_class_dict = {
+            loss_per_class_dict = {
                 'loss vehicle': loss_per_class[0],
                 'loss pedestrian': loss_per_class[1],
-                'loss cyclist': loss_per_class[2],
+                'loss cyclist': loss_per_class[2]
+            }
+            self.val_summary_writer.add_scalars("Val: Loss/", loss_per_class_dict, self.current_iteration)
+
+            acc_iou_per_class_dict = {
                 'acc vehicle': acc_per_class[0],
                 'acc pedestrian': acc_per_class[1],
                 'acc cyclist': acc_per_class[2],
@@ -318,7 +326,7 @@ class Dense_U_Net_lidar_Agent:
                 'iou cyclist': iou_per_class[2],
                 '#NaNs all': torch.sum(epoch_iou_nans[current_batch, :])
             }
-            self.val_summary_writer.add_scalars("Validation_Info/", info_per_class_dict, self.current_iteration)
+            self.val_summary_writer.add_scalars(" Val: Accuracy and IoU/", acc_iou_per_class_dict, self.current_iteration)
 
             current_batch += 1
 
