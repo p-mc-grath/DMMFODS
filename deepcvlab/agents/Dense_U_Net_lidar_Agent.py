@@ -137,7 +137,7 @@ class Dense_U_Net_lidar_Agent:
                 self.config.agent.checkpoint.optimizer])
 
             self.logger.info("Checkpoint loaded successfully from '{}' at (epoch {}) at (iteration {})\n"
-                             .format(self.config.dir.pretrained_weights, checkpoint['epoch'], checkpoint['iteration']))
+                             .format(self.config.dir.pretrained_weights, checkpoint['epoch'], checkpoint['train_iteration']))
         except OSError:
             warnings.warn("No checkpoint exists from '{}'. Skipping...".format(filepath))
             self.logger.info("No checkpoint exists from '{}'. Skipping...".format(filepath))
