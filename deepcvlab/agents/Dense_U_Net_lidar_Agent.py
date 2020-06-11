@@ -75,10 +75,12 @@ class Dense_U_Net_lidar_Agent:
         if not torchvision_init:
             self.load_checkpoint()
 
-        # Tensorboard Writer
-        Path(self.config.dir.summary).mkdir(exist_ok=True)
-        self.summary_writer = SummaryWriter(log_dir=self.config.dir.summary, comment='Dense_U_Net')
-    
+        # Tensorboard Writers
+        Path(self.config.dir.train_summary).mkdir(exist_ok=True)
+        self.train_summary_writer = SummaryWriter(log_dir=self.config.dir.train_summary, comment='Dense_U_Net')
+        Path(self.config.dir.val_summary).mkdir(exist_ok=True)
+        self.val_summary_writer = SummaryWriter(log_dir=self.config.dir.val_summary, comment='Dense_U_Net')
+
     def save_checkpoint(self, filename='checkpoint.pth.tar', is_best=False):
         """
         Saving the latest checkpoint of the training
@@ -172,7 +174,8 @@ class Dense_U_Net_lidar_Agent:
                 self.best_val_acc = val_acc
             self.save_checkpoint(is_best=is_best)
 
-        self.summary_writer.close()
+        self.train_summary_writer.close()
+        self.val_summary_writer.close()
 
     def train_one_epoch(self):
         """
@@ -222,10 +225,6 @@ class Dense_U_Net_lidar_Agent:
             current_loss.backward(torch.ones_like(current_loss.detach(), device=self.device))                            # , retain_graph=True?
             self.optimizer.step()
 
-            # counters
-            self.current_iteration += 1
-            current_batch += 1
-
             # logging for visualization during training
             info_per_class_dict = {
                 'loss vehicle': loss_per_class[0],
@@ -237,9 +236,13 @@ class Dense_U_Net_lidar_Agent:
                 'iou vehicle': iou_per_class[0],
                 'iou pedestrian': iou_per_class[1],
                 'iou cyclist': iou_per_class[2],
-                '#NaNs all': torch.sum(epoch_iou_nans[-1])
+                '#NaNs all': torch.sum(epoch_iou_nans[current_batch, :])
             }
-            self.summary_writer.add_scalars("Training_Info/", info_per_class_dict, self.current_iteration)
+            self.train_summary_writer.add_scalars("Training_Info/", info_per_class_dict, self.current_iteration)
+
+            # counters
+            self.current_iteration += 1
+            current_batch += 1
 
         tqdm_batch.close()
 
@@ -299,7 +302,23 @@ class Dense_U_Net_lidar_Agent:
             epoch_iou_nans[current_batch, :] = torch.sum(torch.isnan(iou_per_instance_per_class), axis=0)
 
             # compute class-wise accuracy of current batch
-            epoch_acc[current_batch, :] = utils.compute_accuracy(ht_map.detach(), prediction.detach(), self.config.agent.iou_threshold)
+            acc_per_class = utils.compute_accuracy(ht_map.detach(), prediction.detach(), self.config.agent.iou_threshold)
+            epoch_acc[current_batch, :] = acc_per_class
+
+            # logging for visualization during training
+            info_per_class_dict = {
+                'loss vehicle': loss_per_class[0],
+                'loss pedestrian': loss_per_class[1],
+                'loss cyclist': loss_per_class[2],
+                'acc vehicle': acc_per_class[0],
+                'acc pedestrian': acc_per_class[1],
+                'acc cyclist': acc_per_class[2],
+                'iou vehicle': iou_per_class[0],
+                'iou pedestrian': iou_per_class[1],
+                'iou cyclist': iou_per_class[2],
+                '#NaNs all': torch.sum(epoch_iou_nans[current_batch, :])
+            }
+            self.val_summary_writer.add_scalars("Validation_Info/", info_per_class_dict, self.current_iteration)
 
             current_batch += 1
 
@@ -321,5 +340,6 @@ class Dense_U_Net_lidar_Agent:
         Save checkpoint and log
         """
         self.logger.info("Please wait while finalizing the operation.. Thank you")
-        self.summary_writer.close()
+        self.train_summary_writer.close()
+        self.val_summary_writer.close()
         print('ending ' + self.config.loader.mode + ' at ' + str(datetime.now()))

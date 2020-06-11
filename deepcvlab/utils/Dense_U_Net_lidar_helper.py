@@ -190,7 +190,8 @@ def create_config(host_dir):
                 config['dir']['data'][mode][datatype] = join(config['dir']['data']['root'], mode, datatype)
     '''
 
-    config['dir']['summary'] = join(config['dir']['root'], 'training_summary') 
+    config['dir']['train_summary'] = join(config['dir']['root'], 'training_summary') 
+    config['dir']['val_summary'] = join(config['dir']['root'], 'validation_summary') 
 
     return config
 
