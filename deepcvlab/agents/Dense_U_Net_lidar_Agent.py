@@ -77,7 +77,7 @@ class Dense_U_Net_lidar_Agent:
             self.load_checkpoint()
 
         # Tensorboard Writers
-        Path(self.config.dir.summary).mkdir(exist_ok=True)
+        Path(self.config.dir.summary.root).mkdir(exist_ok=True)
         Path(self.config.dir.summary.train).mkdir(exist_ok=True)
         Path(self.config.dir.summary.val).mkdir(exist_ok=True)
         self.train_summary_writer = SummaryWriter(log_dir=self.config.dir.summary.train, comment='Dense_U_Net')
