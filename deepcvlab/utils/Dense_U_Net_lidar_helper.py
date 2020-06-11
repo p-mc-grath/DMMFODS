@@ -161,7 +161,8 @@ def create_config(host_dir):
         'iou_threshold': 0.7,
         'checkpoint': {
             'epoch': 'epoch',
-            'iteration': 'iteration',
+            'train_iteration': 'train_iteration',
+            'val_iteration': 'val_iteration',
             'best_val_acc': 'best_val_acc',
             'state_dict': 'state_dict',
             'optimizer': 'optimizer'

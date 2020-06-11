@@ -78,10 +78,10 @@ class Dense_U_Net_lidar_Agent:
 
         # Tensorboard Writers
         Path(self.config.dir.summary.root).mkdir(exist_ok=True)
-        Path(self.config.dir.summary.train).mkdir(exist_ok=True)
-        Path(self.config.dir.summary.val).mkdir(exist_ok=True)
-        self.train_summary_writer = SummaryWriter(log_dir=self.config.dir.summary.train, comment='Dense_U_Net')
-        self.val_summary_writer = SummaryWriter(log_dir=self.config.dir.summary.val, comment='Dense_U_Net')
+        #Path(self.config.dir.summary.train).mkdir(exist_ok=True)
+        #Path(self.config.dir.summary.val).mkdir(exist_ok=True)
+        self.train_summary_writer = SummaryWriter(log_dir=self.config.dir.summary.root, comment='Dense_U_Net')
+        self.val_summary_writer = SummaryWriter(log_dir=self.config.dir.summary.root, comment='Dense_U_Net')
 
     def save_checkpoint(self, filename='checkpoint.pth.tar', is_best=False):
         """
@@ -235,7 +235,7 @@ class Dense_U_Net_lidar_Agent:
                 'loss pedestrian': loss_per_class[1],
                 'loss cyclist': loss_per_class[2]
             }
-            self.train_summary_writer.add_scalars("Training Loss", loss_per_class_dict, self.current_train_iteration)
+            self.train_summary_writer.add_scalars("Loss/train", loss_per_class_dict, self.current_train_iteration)
 
             acc_iou_per_class_dict = {
                 'acc vehicle': acc_per_class[0],
@@ -246,7 +246,7 @@ class Dense_U_Net_lidar_Agent:
                 'iou cyclist': iou_per_class[2],
                 '#NaNs all': torch.sum(epoch_iou_nans[current_batch, :])
             }
-            self.train_summary_writer.add_scalars("Training Accuracy|IoU", acc_iou_per_class_dict, self.current_train_iteration)
+            self.train_summary_writer.add_scalars("Accuracy/train", acc_iou_per_class_dict, self.current_train_iteration)
 
             # counters
             self.current_train_iteration += 1
@@ -319,7 +319,7 @@ class Dense_U_Net_lidar_Agent:
                 'loss pedestrian': loss_per_class[1],
                 'loss cyclist': loss_per_class[2]
             }
-            self.val_summary_writer.add_scalars("Validation Loss", loss_per_class_dict, self.current_val_iteration)
+            self.val_summary_writer.add_scalars("Loss/val", loss_per_class_dict, self.current_val_iteration)
 
             acc_iou_per_class_dict = {
                 'acc vehicle': acc_per_class[0],
@@ -330,7 +330,7 @@ class Dense_U_Net_lidar_Agent:
                 'iou cyclist': iou_per_class[2],
                 '#NaNs all': torch.sum(epoch_iou_nans[current_batch, :])
             }
-            self.val_summary_writer.add_scalars("Validation Accuracy|IoU", acc_iou_per_class_dict, self.current_val_iteration)
+            self.val_summary_writer.add_scalars("Accuracy/val", acc_iou_per_class_dict, self.current_val_iteration)
 
             # counters
             self.current_val_iteration += 1
