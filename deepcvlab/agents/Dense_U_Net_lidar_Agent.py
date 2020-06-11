@@ -58,7 +58,7 @@ class Dense_U_Net_lidar_Agent:
         self.current_epoch = 0
         self.current_train_iteration = 0
         self.current_val_iteration = 0
-        self.best_val_acc = 0
+        self.best_val_iou = 0
 
         # if cuda is available export model to gpu
         self.cuda = torch.cuda.is_available()
@@ -93,7 +93,7 @@ class Dense_U_Net_lidar_Agent:
             self.config.agent.checkpoint.epoch: self.current_epoch,
             self.config.agent.checkpoint.train_iteration: self.current_train_iteration,
             self.config.agent.checkpoint.val_iteration: self.current_val_iteration,
-            self.config.agent.checkpoint.best_val_acc: self.best_val_acc,
+            self.config.agent.checkpoint.best_val_iou: self.best_val_iou,
             self.config.agent.checkpoint.state_dict: self.model.state_dict(),
             self.config.agent.checkpoint.optimizer: self.optimizer.state_dict()
         }
@@ -111,7 +111,7 @@ class Dense_U_Net_lidar_Agent:
         '''
         load checkpoint from file
         should contain following keys: 
-            'epoch', 'iteration', 'best_val_acc', 'state_dict', 'optimizer'
+            'epoch', 'iteration', 'best_val_iou', 'state_dict', 'optimizer'
             where state_dict is model statedict
             and optimizer is optimizer statesict
         '''
@@ -129,8 +129,8 @@ class Dense_U_Net_lidar_Agent:
                 self.config.agent.checkpoint.train_iteration]
             self.current_val_iteration = checkpoint[
                 self.config.agent.checkpoint.val_iteration]
-            self.best_val_acc = checkpoint[
-                self.config.agent.checkpoint.best_val_acc]
+            self.best_val_iou = checkpoint[
+                self.config.agent.checkpoint.best_val_iou]
             self.model.load_state_dict(checkpoint[
                 self.config.agent.checkpoint.state_dict])
             self.optimizer.load_state_dict(checkpoint[
@@ -169,11 +169,11 @@ class Dense_U_Net_lidar_Agent:
             self.train_one_epoch()
 
             with torch.no_grad():
-                avg_val_acc_per_class = self.validate()
-            val_acc = sum(avg_val_acc_per_class)/len(avg_val_acc_per_class)
-            is_best = val_acc > self.best_val_acc
+                avg_val_iou_per_class = self.validate()
+            val_iou = sum(avg_val_iou_per_class)/len(avg_val_iou_per_class)
+            is_best = val_iou > self.best_val_iou
             if is_best:
-                self.best_val_acc = val_acc
+                self.best_val_iou = val_iou
             self.save_checkpoint(is_best=is_best)
 
         self.train_summary_writer.close()
@@ -353,7 +353,7 @@ class Dense_U_Net_lidar_Agent:
 
         tqdm_batch.close()
         
-        return avg_epoch_acc
+        return avg_epoch_iou
 
     def finalize(self):
         """

@@ -170,7 +170,7 @@ def create_config(host_dir):
             'epoch': 'epoch',
             'train_iteration': 'train_iteration',
             'val_iteration': 'val_iteration',
-            'best_val_acc': 'best_val_acc',
+            'best_val_iou': 'best_val_iou',
             'state_dict': 'state_dict',
             'optimizer': 'optimizer'
         },
