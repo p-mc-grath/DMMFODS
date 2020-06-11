@@ -52,7 +52,7 @@ class ClassWiseFocalLoss(FocalLoss):
         alpha: class-class imbalance
         gamma: class-background imbalance
     '''
-    def __init__(self, alpha=[1], gamma=[8, 13, 16], logits=True, reduce=False):
+    def __init__(self, alpha=[1, 5, 8], gamma=[8, 13, 16], logits=True, reduce=False):
         '''
         See FocalLoss
         Expects gamma and alpha to be of same length
