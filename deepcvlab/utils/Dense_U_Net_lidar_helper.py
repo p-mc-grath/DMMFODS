@@ -191,11 +191,8 @@ def create_config(host_dir):
                 config['dir']['data'][mode][datatype] = join(config['dir']['data']['root'], mode, datatype)
     '''
 
-    config['dir']['summary']= {
-        'root': join(config['dir']['root'], 'summary'),
-        'train': join(config['dir']['root'], 'summary', 'training'),
-        'val': join(config['dir']['root'], 'summary', 'validation')
-    }
+    # TensorBoard summary writers dir
+    config['dir']['summary']=  join(config['dir']['root'], 'summary')
 
     return config
 
