@@ -40,7 +40,7 @@ class Dense_U_Net_lidar_Agent:
 
         # pixel-wise cross-entropy loss 
         self.loss = torch.nn.BCEWithLogitsLoss(reduction='none').cuda()
-        
+
         # optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), 
             lr=self.config.optimizer.learning_rate, 
@@ -76,10 +76,10 @@ class Dense_U_Net_lidar_Agent:
         if not torchvision_init:
             self.load_checkpoint()
 
-        # Tensorboard Writers
-        Path(self.config.dir.summary).mkdir(exist_ok=True)
-        self.train_summary_writer = SummaryWriter(log_dir=self.config.dir.summary, comment='Dense_U_Net')
-        self.val_summary_writer = SummaryWriter(log_dir=self.config.dir.summary, comment='Dense_U_Net')
+        # Tensorboard Writers 
+        Path(self.config.dir.current_run.summary).mkdir(exist_ok=True, parents=True)
+        self.train_summary_writer = SummaryWriter(log_dir=self.config.dir.current_run.summary, comment='Dense_U_Net')
+        self.val_summary_writer = SummaryWriter(log_dir=self.config.dir.current_run.summary, comment='Dense_U_Net')
 
     def save_checkpoint(self, filename='checkpoint.pth.tar', is_best=False):
         """
@@ -102,10 +102,10 @@ class Dense_U_Net_lidar_Agent:
             filename = self.config.agent.best_checkpoint_name
 
         # create dir if not exists
-        Path(self.config.dir.pretrained_weights).mkdir(exist_ok=True)
+        Path(self.config.dir.current_run.checkpoints).mkdir(exist_ok=True, parents=True)
 
         # Save the state
-        torch.save(state, os.path.join(self.config.dir.pretrained_weights, filename))
+        torch.save(state, os.path.join(self.config.dir.current_run.checkpoints, filename))
     
     def load_checkpoint(self, filename=None):
         '''
@@ -119,7 +119,7 @@ class Dense_U_Net_lidar_Agent:
         if filename is None:
             filename = self.config.agent.best_checkpoint_name
 
-        filepath = os.path.join(self.config.dir.pretrained_weights, filename)
+        filepath = os.path.join(self.config.dir.current_run.checkpoints, filename)
         try:
             self.logger.info("Loading checkpoint '{}'".format(filename))
             checkpoint = torch.load(filepath)
@@ -137,7 +137,7 @@ class Dense_U_Net_lidar_Agent:
                 self.config.agent.checkpoint.optimizer])
 
             self.logger.info("Checkpoint loaded successfully from '{}' at (epoch {}) at (iteration {})\n"
-                             .format(self.config.dir.pretrained_weights, checkpoint['epoch'], checkpoint['train_iteration']))
+                             .format(self.config.dir.current_run.checkpoints, checkpoint['epoch'], checkpoint['train_iteration']))
         except OSError:
             warnings.warn("No checkpoint exists from '{}'. Skipping...".format(filepath))
             self.logger.info("No checkpoint exists from '{}'. Skipping...".format(filepath))
@@ -160,10 +160,33 @@ class Dense_U_Net_lidar_Agent:
 
     def train(self):
         '''
-        train starting from checkpoint/ 0
-        save checkpoints after each epoch
-        save best checkpoints in separate file
+        training one epoch at a time
+        validating after each epoch
+        saving checkpoint after each epoch
+        check if val acc is best and store separately
         '''
+        # add hyper params to summary writers
+        hyper_params = {
+            'loss_func': str(self.loss),
+            'loss_alpha': self.config.loss.alpha,                                                         
+            'loss_gamma': self.config.loss.gamma,    
+            'loss_skip_v_every_n_its': self.config.loss.skip_v_every_n_its,
+            'loss_skip_p_every_n_its': self.config.loss.skip_p_every_n_its,
+            'loss_skip_b_every_n_its': self.config.loss.skip_b_every_n_its,
+            'optimizer': str(self.optimizer),
+            'learning_rate': self.config.optimizer.learning_rate,
+            'beta1': self.config.optimizer.beta1,
+            'beta2': self.config.optimizer.beta2,
+            'eps': self.config.optimizer.eps,
+            'amsgrad': self.config.optimizer.amsgrad,
+            'weight_decay': self.config.optimizer.weight_decay,
+            'lr_scheduler': self.config.optimizer.lr_scheduler.want,
+            'lr_scheduler_every_n_epochs': self.config.optimizer.lr_scheduler.every_n_epochs,
+            'lr_scheduler_gamma': self.config.optimizer.lr_scheduler.gamma,
+        }
+        self.train_summary_writer.add_hparams(hyper_params, {})
+        self.val_summary_writer.add_hparams(hyper_params, {})
+
         for epoch in range(self.current_epoch, self.config.agent.max_epoch):
             self.current_epoch = epoch
             self.train_one_epoch()

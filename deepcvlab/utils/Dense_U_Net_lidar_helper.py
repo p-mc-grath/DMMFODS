@@ -5,6 +5,7 @@ import tensorflow as tf
 import json
 import warnings
 
+from datetime.datetime import now
 from easydict import EasyDict as edict
 from six.moves import cPickle as pickle
 from os import listdir
@@ -112,11 +113,14 @@ def create_config(host_dir):
         'memory_efficient': False
     }
 
-    config['loss'] = {                                                      
+    config['loss'] = { 
         'alpha': 1,                                                         # default value focal loss
         'gamma': 2,                                                         # default value focal loss
         'logits': True,
-        'reduce': False
+        'reduce': False,
+        'skip_v_every_n_its': None,
+        'skip_p_every_n_its': None,
+        'skip_b_every_n_its': None
     }
 
     # loader params
@@ -166,7 +170,7 @@ def create_config(host_dir):
         'seed': 123,                                                        # fixed random seed ensures reproducibility
         'max_epoch': 100,
         'iou_threshold': 0.7,
-        'checkpoint': {
+        'checkpoint': {                                                     # naming in checkpoint dict
             'epoch': 'epoch',
             'train_iteration': 'train_iteration',
             'val_iteration': 'val_iteration',
@@ -179,7 +183,7 @@ def create_config(host_dir):
 
     # create subdirs according to pytorch project template: https://github.com/moemen95/Pytorch-Project-Template/tree/4d2f7bea9819fe2e5e25153c5cc87c8b5f35f4b8
     config['dir']['root'] = join(config['dir']['hosting'], 'DeepCVLab', 'deepcvlab')
-    for subdir in ['agents', 'graphs', 'utils', 'datasets', 'pretrained_weights', 'configs']:
+    for subdir in ['agents', 'graphs', 'utils', 'datasets', 'configs', 'experiments']:
         config['dir'][subdir] = join(config['dir']['root'], subdir)
     config['dir']['graphs'] = {'models': join(config['dir']['graphs'], 'models')}
     
@@ -188,18 +192,10 @@ def create_config(host_dir):
         'file_lists': join(config['dir']['root'], 'data')
         }                      
 
-    '''
-    changed structure due to colab weirdness
-    # directories according to distribute_data_into_train_val_test function in this script
-    # not used as their have to be multiple data roots due to colab restrictions
-    for mode in ['train', 'val', 'test']:
-        config['dir']['data'][mode] = {}
-        for datatype in config['dataset']['datatypes']:
-                config['dir']['data'][mode][datatype] = join(config['dir']['data']['root'], mode, datatype)
-    '''
-
-    # TensorBoard summary writers dir
-    config['dir']['summary']=  join(config['dir']['root'], 'summary')
+    # Current run: tensorBoard summary writers dir and checkpoint dir
+    current_run = now().strftime('%Y-%m-%d-%H-%M')
+    config['dir']['current_run']['summary'] =  join(config['dir']['experiments'], current_run, 'summary')
+    config['dir']['current_run']['checkpoints'] = join(config['dir']['experiments'], current_run, 'checkpoints')
 
     return config
 

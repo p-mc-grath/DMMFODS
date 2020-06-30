@@ -69,17 +69,4 @@ class ClassWiseFocalLoss(FocalLoss):
             loss
         '''
         if self.logits:
-            BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
-        else:
-            BCE_loss = F.binary_cross_entropy(inputs, targets, reduction='none')
-        pt = torch.exp(-BCE_loss)                                                                       # -BCE_loss = log(pt)
-        
-        F_loss = torch.zeros_like(pt)
-        for i, (alpha, gamma) in enumerate(zip(self.alpha, self.gamma)):
-            F_loss[:, i, :, :] = alpha * (1-pt[:, i, :, :])**gamma * BCE_loss[:, i, :, :]
-
-        if self.reduce:
-            return torch.mean(F_loss)
-        else:
-            return F_loss
-
+            BCE_loss = F.binary_cross_entropy_with_logits(inputs, target
