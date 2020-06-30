@@ -411,8 +411,8 @@ class Dense_U_Net_lidar_Agent:
         '''
 
         hparams = {
-            'loss': self.config.loss,
-            'optimizer': self.config.optimizer
+            'loss': self.config.loss.__dict__,
+            'optimizer': self.config.optimizer.__dict__
         }
 
         utils.save_json_file(os.path.join(self.config.dir.current_run, 'hyperparams.json'), 
