@@ -5,7 +5,7 @@ import tensorflow as tf
 import json
 import warnings
 
-from datetime.datetime import now
+from datetime import datetime
 from easydict import EasyDict as edict
 from six.moves import cPickle as pickle
 from os import listdir
@@ -198,7 +198,7 @@ def create_config(host_dir):
         }                      
 
     # Current run: tensorBoard summary writers dir and checkpoint dir
-    current_run = now().strftime('%Y-%m-%d-%H-%M')
+    current_run = datetime.now().strftime('%Y-%m-%d-%H-%M')
     config['dir']['current_run']['summary'] =  join(config['dir']['experiments'], current_run, 'summary')
     config['dir']['current_run']['checkpoints'] = join(config['dir']['experiments'], current_run, 'checkpoints')
 
