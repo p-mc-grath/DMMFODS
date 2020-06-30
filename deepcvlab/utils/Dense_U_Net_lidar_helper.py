@@ -199,8 +199,10 @@ def create_config(host_dir):
 
     # Current run: tensorBoard summary writers dir and checkpoint dir
     current_run = datetime.now().strftime('%Y-%m-%d-%H-%M')
-    config['dir']['current_run']['summary'] =  join(config['dir']['experiments'], current_run, 'summary')
-    config['dir']['current_run']['checkpoints'] = join(config['dir']['experiments'], current_run, 'checkpoints')
+    config['dir']['current_run'] = {
+        'summary':   join(config['dir']['experiments'], current_run, 'summary'),
+        'checkpoints': join(config['dir']['experiments'], current_run, 'checkpoints')
+    }
 
     return config
 
