@@ -415,7 +415,7 @@ class Dense_U_Net_lidar_Agent:
             'optimizer': self.config.optimizer.__dict__
         }
 
-        utils.save_json_file(os.path.join(self.config.dir.current_run, 'hyperparams.json'), 
+        utils.save_json_file(os.path.join(self.config.dir.current_run.summary, 'hyperparams.json'), 
                                 hparams , indent=4)
     
     def finalize(self):
