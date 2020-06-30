@@ -123,9 +123,9 @@ def create_config(host_dir):
         'gamma': 2,                                                         # default value focal loss
         'logits': True,
         'reduce': False,
-        'skip_v_every_n_its': None,
-        'skip_p_every_n_its': None,
-        'skip_b_every_n_its': None
+        'skip_v_every_n_its': False,
+        'skip_p_every_n_its': False,
+        'skip_b_every_n_its': False
     }
 
     # loader params
