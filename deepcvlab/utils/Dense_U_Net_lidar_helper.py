@@ -85,7 +85,7 @@ def create_config(host_dir):
     '''
 
     if not host_dir:
-        rost_dir = '/content/drive/My Drive/Colab Notebooks/DeepCV_Packages'
+        host_dir = '/content/drive/My Drive/Colab Notebooks/DeepCV_Packages'
 
     # overall root dir
     config = {
