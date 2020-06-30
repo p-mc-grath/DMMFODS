@@ -20,9 +20,11 @@ from waymo_open_dataset import dataset_pb2 as open_dataset
 def load_json_file(filepath):
     '''
     simply loads json file
+
     Arguments:
         filepath: full path path incl. filename and extension
     '''
+
     if isfile(filepath):
         with open(filepath, 'r') as jf:
                 json_file = json.load(jf)
@@ -34,11 +36,13 @@ def load_json_file(filepath):
 def save_json_file(filepath, save_file, indent=None):
     '''
     simply saves json file
+
     Arguments:
         filepath: full path path incl. filename and extension
         save_file: file to save
         indent: allows pretty json file for human readability | None most dense representation
     '''
+
     with open(filepath, 'w') as jf:
         json.dump(save_file, jf, indent=indent)
 
@@ -53,6 +57,7 @@ def load_config(loading_dir, file_name):
     '''
     tries to load config from json file
     '''
+
     json_file = join(loading_dir, file_name)
      
     if isfile(json_file):
@@ -80,7 +85,7 @@ def create_config(host_dir):
     '''
 
     if not host_dir:
-        host_dir = '/content/drive/My Drive/Colab Notebooks/DeepCV_Packages'
+        rost_dir = '/content/drive/My Drive/Colab Notebooks/DeepCV_Packages'
 
     # overall root dir
     config = {
@@ -203,6 +208,7 @@ def get_config(host_dir='', file_name='config.json'):
     '''
     load from json file or create config
     '''
+
     config = load_config(join(host_dir, 'DeepCVLab', 'deepcvlab', 'configs'), file_name)
     
     if config is None:
@@ -217,6 +223,7 @@ def _create_ground_truth_bb_pedestrian(ground_truth_box):
     '''
     Very rough, generic approximation of human silhouette in bounding box
     '''
+
     unlikely = 0.3
     uncertain = 0.5
     half_certain = 0.75
@@ -263,10 +270,12 @@ def create_ground_truth_maps(ground_truth, width_img=1920, height_img=1280):
                 x, y coords of upper left corner
         width_img:  of original!! image
         height_img: of original!! image
+
     return:
         to work with pytorch's batching these ground truth maps MUST NOT have
         a BATCH DIMENSION when saved
     '''
+
     maps = np.zeros((3, height_img, width_img))
     
     for elem in ground_truth.values():
@@ -292,14 +301,17 @@ def compute_IoU_whole_img_per_class(ground_truth_map, estimated_heat_map, thresh
     '''
     Custom Intersection over Union function 
     Due output format it is not possible to compute IoU per bounding box
+
     Arguments:
         gt_map: 
         estimated_heat_map: 
             -> struct of these must be exactly the same: class, y, x
         threshold: must be in [0,1] values above the threshold are set to 1, below to zero
-    :return:
+
+    return:
         IoU_per_class: special case: union == 0 -> iou=nan!!!
     '''
+
     # make maps boolean
     est_bool = estimated_heat_map >= threshold
     gt_bool = ground_truth_map >= threshold                                             
@@ -326,10 +338,12 @@ def compute_IoU_whole_img_batch(ground_truth_map_batch, estimated_heat_map_batch
     Arguments:
         threshold: value [0,1] representing cutoff; values are set to if above = 1 ; below = 0
         batches: of form: instance in batch, class, y, x
+    
     return:
         whole image IoU per sample and class
         when IoU = 0/0 returns nan
     '''
+
     # alocate space of size: samples x classes
     iou_per_instance_per_class = torch.zeros(ground_truth_map_batch.shape[0], ground_truth_map_batch.shape[1])
 
@@ -351,9 +365,11 @@ def compute_accuracy(ground_truth, prediction, threshold=0.7):
         prediction: heatmap of one sample/ batch of maps: classes, y, x
         threshold: used to threshold both prediction and gt
     
+    
     return:
         class-wise accuracy
     '''
+
     # allowing single sample as well as batches to be passed to this function
     if len(ground_truth.shape) == 3:
         axes = (1,2)
@@ -394,6 +410,7 @@ def convert_label_dicts_to_heat_maps(dir):
     unused
     Overwrites dict files with corresponding tensors
     '''
+
     files = listdir(dir) 
     for file in files:
         label_dict = load_dict(join(dir, file))
@@ -404,6 +421,7 @@ def avgpool_tensor(img_tensor):
     '''
     save storage space by downsizing images
     '''
+
     avg_pool = torch.nn.AvgPool2d(10, stride=10)                                               
     return avg_pool(img_tensor)
     
@@ -411,6 +429,7 @@ def maxpool_tensor(img_tensor):
     '''
     save storage space by downsizing images
     '''
+
     max_pool = torch.nn.MaxPool2d(10, stride=10)                                               
     return max_pool(img_tensor)
 
@@ -434,6 +453,7 @@ def pool_lidar_tensor(lidar_tensor):
     25 -> 100
     75 -> 0
     '''
+
     # make sure all vecs are in [0,75] as specified by waymo
     lidar_max_range=75.0
     lidar_tensor[lidar_tensor>lidar_max_range] = lidar_max_range                # clipping not consequent; some vals 76.x
@@ -465,6 +485,7 @@ def lidar_array_to_image_like_tensor(lidar_array, shape=(1,1280,1920), kernel_si
     read out lidar array into image with one channel = distance values
     allow splatting values to surrounding pixels
     '''
+
     shift = (kernel_size-1)//2
 
     range_tensor = torch.ones(shape)*-1.0
@@ -522,7 +543,8 @@ def waymo_to_pytorch_offline(data_root='', idx_dataset_batch=-1):
 
     colab: there are a lot of unnessecary subdirs because of googlefilestream limitations
     data is not stored in batches because the data comes in sequences of 20s. 
-    '''      
+    '''     
+
     # allows __iter__() for tf record dataset
     tf.compat.v1.enable_eager_execution()
 

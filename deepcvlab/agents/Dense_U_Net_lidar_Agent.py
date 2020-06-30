@@ -26,6 +26,7 @@ class Dense_U_Net_lidar_Agent:
                 - True:     load densenet state dict from torchvision
                 - False:    load checkpoint; if no checkpoint just normal init
         '''
+
         self.logger = logging.getLogger("Agent")
 
         # model and config if lazy
@@ -82,12 +83,14 @@ class Dense_U_Net_lidar_Agent:
         self.val_summary_writer = SummaryWriter(log_dir=self.config.dir.current_run.summary, comment='Dense_U_Net')
 
     def save_checkpoint(self, filename='checkpoint.pth.tar', is_best=False):
-        """
+        '''
         Saving the latest checkpoint of the training
-        :param filename: filename which will contain the state
-        :param is_best: flag is it is the best model
-        :return:
-        """
+
+        Arguments:
+            filename: filename which will contain the state
+            is_best: flag is it is the best model
+        '''
+
         #aggregate important data
         state = {
             self.config.agent.checkpoint.epoch: self.current_epoch,
@@ -115,6 +118,7 @@ class Dense_U_Net_lidar_Agent:
             where state_dict is model statedict
             and optimizer is optimizer statesict
         '''
+
         # use best if not specified
         if filename is None:
             filename = self.config.agent.best_checkpoint_name
@@ -145,8 +149,10 @@ class Dense_U_Net_lidar_Agent:
 
     def run(self):
         '''
+        starts training are testing: specify under config.loader.mode
         can handle keyboard interupt
         '''
+
         print('starting ' + self.config.loader.mode + ' at ' + str(datetime.now()))
         try:
             if self.config.loader.mode == 'test':
@@ -165,34 +171,23 @@ class Dense_U_Net_lidar_Agent:
         saving checkpoint after each epoch
         check if val acc is best and store separately
         '''
-        # add hyper params to summary writers
-        hyper_params = {
-            'loss_func': str(self.loss),
-            'loss_alpha': self.config.loss.alpha,                                                         
-            'loss_gamma': self.config.loss.gamma,    
-            'loss_skip_v_every_n_its': self.config.loss.skip_v_every_n_its,
-            'loss_skip_p_every_n_its': self.config.loss.skip_p_every_n_its,
-            'loss_skip_b_every_n_its': self.config.loss.skip_b_every_n_its,
-            'optimizer': str(self.optimizer),
-            'learning_rate': self.config.optimizer.learning_rate,
-            'beta1': self.config.optimizer.beta1,
-            'beta2': self.config.optimizer.beta2,
-            'eps': self.config.optimizer.eps,
-            'amsgrad': self.config.optimizer.amsgrad,
-            'weight_decay': self.config.optimizer.weight_decay,
-            'lr_scheduler': self.config.optimizer.lr_scheduler.want,
-            'lr_scheduler_every_n_epochs': self.config.optimizer.lr_scheduler.every_n_epochs,
-            'lr_scheduler_gamma': self.config.optimizer.lr_scheduler.gamma,
-        }
-        self.train_summary_writer.add_hparams(hyper_params, {})
-        self.val_summary_writer.add_hparams(hyper_params, {})
 
+        # add selected loss and optimizer to config  | not added in init as may be changed before training
+        self.config.loss.func = str(self.loss)
+        self.config.optimizer.func = str(self.optimizer)
+
+        # make sure to remember the hyper params
+        self.add_hparams_summary_writer()
+        self.save_hparams_json()
+
+        # Iterate epochs | train one epoch | validate | save checkpoint
         for epoch in range(self.current_epoch, self.config.agent.max_epoch):
             self.current_epoch = epoch
             self.train_one_epoch()
 
             with torch.no_grad():
                 avg_val_iou_per_class = self.validate()
+
             val_iou = sum(avg_val_iou_per_class)/len(avg_val_iou_per_class)
             is_best = val_iou > self.best_val_iou
             if is_best:
@@ -203,9 +198,10 @@ class Dense_U_Net_lidar_Agent:
         self.val_summary_writer.close()
 
     def train_one_epoch(self):
-        """
+        '''
         One epoch training function
-        """
+        '''
+
         # Initialize progress visualization and get batch
         tqdm_batch = tqdm(self.data_loader.train_loader, total=self.data_loader.train_iterations,
                           desc="Epoch-{}-".format(self.current_epoch))
@@ -293,11 +289,13 @@ class Dense_U_Net_lidar_Agent:
                  cum_epoch_nans) + ' | ' + 'Average Accuracy: ' + str(avg_epoch_acc))
 
     def validate(self):
-        """
+        '''
         One epoch validation
-        :return: 
+        
+        return: 
             average acc per class
-        """
+        '''
+
         # Initialize progress visualization and get batch
         # !self.data_loader.valid_loader works for both valid and test 
         tqdm_batch = tqdm(self.data_loader.valid_loader, total=self.data_loader.valid_iterations,
@@ -378,10 +376,52 @@ class Dense_U_Net_lidar_Agent:
         
         return avg_epoch_iou
 
+    def add_hparams_summary_writer(self):
+        '''
+        Add Hyperparamters to tensorboard summary writers using .add_hparams
+        Can be accessed under the Hyperparameter tab in Tensorboard
+        '''
+
+        hyper_params = {
+            'loss_func': self.config.loss.func,
+            'loss_alpha': self.config.loss.alpha,                                                         
+            'loss_gamma': self.config.loss.gamma,    
+            'loss_skip_v_every_n_its': self.config.loss.skip_v_every_n_its,
+            'loss_skip_p_every_n_its': self.config.loss.skip_p_every_n_its,
+            'loss_skip_b_every_n_its': self.config.loss.skip_b_every_n_its,
+            'optimizer': self.config.optimizer.func,
+            'learning_rate': self.config.optimizer.learning_rate,
+            'beta1': self.config.optimizer.beta1,
+            'beta2': self.config.optimizer.beta2,
+            'eps': self.config.optimizer.eps,
+            'amsgrad': self.config.optimizer.amsgrad,
+            'weight_decay': self.config.optimizer.weight_decay,
+            'lr_scheduler': self.config.optimizer.lr_scheduler.want,
+            'lr_scheduler_every_n_epochs': self.config.optimizer.lr_scheduler.every_n_epochs,
+            'lr_scheduler_gamma': self.config.optimizer.lr_scheduler.gamma,
+        }
+       
+        self.train_summary_writer.add_hparams(hyper_params, {})
+        self.val_summary_writer.add_hparams(hyper_params, {})
+
+    def save_hparams_json(self):
+        '''
+        Uses config information to generate a hyperparameter dict and saves it as a json file
+        into the current_run directory
+        '''
+
+        hparams = {
+            'loss': self.config.loss,
+            'optimizer': self.config.optimizer
+        }
+
+        utils.save_json_file(os.path.join(self.config.dir.current_run, 'hyperparams.json'), 
+                                hparams , indent=4)
+    
     def finalize(self):
-        """
-        Save checkpoint and log
-        """
+        '''
+        Close all Writers and print time
+        '''
         self.logger.info("Please wait while finalizing the operation.. Thank you")
         self.train_summary_writer.close()
         self.val_summary_writer.close()

@@ -22,6 +22,7 @@ class WaymoDataset(Dataset):
 
         colab: there are a lot of unnessecary subdirs because of googlefilestream limitations
         '''
+
         super().__init__()
         self.root = config.dir.data.root
         self.data_is_batched = config.dataset.batch_size > 1
@@ -84,8 +85,10 @@ class WaymoDataset(Dataset):
 
     def get_batch(self, idx):
         '''
-        returns dataset batch at idx
+        return: 
+            dataset batch at idx
         '''
+
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
@@ -100,8 +103,10 @@ class WaymoDataset(Dataset):
 
     def get_single_sample(self, idx):
         '''
-        returns dataset item at idx
+        return:
+            dataset item at idx
         '''
+
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
@@ -114,7 +119,8 @@ class WaymoDataset(Dataset):
 
     def __getitem__(self, idx):
         '''
-        returns dataset items at idx
+        return: 
+            dataset items at idx
         '''
 
         if self.data_is_batched:
@@ -128,8 +134,10 @@ class WaymoDataset(Dataset):
 
     def __len__(self):
         '''
-        returns number of batches/ samples
+        return:
+            number of batches/ samples
         '''
+        
         if self.data_is_batched:
             return len(self.files)
 
@@ -143,6 +151,7 @@ class WaymoDataset(Dataset):
         '''
         check if names match as expected
         '''
+
         for i in range(self.__len__()):
             assert self.files['lidar'][i].endswith(self.files['images'][i][-11:]), str(i) + ' ' + self.files['lidar'][i] + ' ' + self.files['images'][i]
             assert self.files['heat_maps'][i].endswith(self.files['images'][i][-11:]), str(i) + ' ' + self.files['heat_maps'][i] + ' ' + self.files['images'][i]
