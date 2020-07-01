@@ -17,6 +17,10 @@ from waymo_open_dataset.utils import transform_utils
 from waymo_open_dataset.utils import  frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
 
+############################################################################
+# json helpers
+############################################################################
+
 def load_json_file(filepath):
     '''
     simply loads json file
@@ -135,7 +139,7 @@ def create_config(host_dir):
         'pin_memory': True,                                                 
         'num_workers': 4,
         'async_loading': True,                                              
-        'drop_last': False                                              # needs to be False if batch_size None
+        'drop_last': False                                                  # needs to be False if batch_size None
     }
 
     # optimizer params; currently torch.optim.Adam default
@@ -217,6 +221,11 @@ def get_config(host_dir='', file_name='config.json'):
         config = create_config(host_dir)
 
     return edict(config)
+
+def set_current_run(config, current_run):
+    config.dir.current_run.summary = '/' + os.path.join(*config.dir.current_run.summary.split('/')[:-2], current_run , 'summary')
+    config.dir.current_run.checkpoints = '/' + os.path.join(*config.dir.current_run.checkpoints.split('/')[:-2], current_run, 'checkpoints')
+    return config
 
 ############################################################################
 # Ground Truth functions
@@ -367,7 +376,6 @@ def compute_accuracy(ground_truth, prediction, threshold=0.7):
         prediction: heatmap of one sample/ batch of maps: classes, y, x
         threshold: used to threshold both prediction and gt
     
-    
     return:
         class-wise accuracy
     '''
@@ -502,7 +510,7 @@ def lidar_array_to_image_like_tensor(lidar_array, shape=(1,1280,1920), kernel_si
         max_x = int(x+shift+1)
         if max_x>shape[2]-1: max_x=shape[2]-1
 
-        range_tensor[0,min_y:max_y,min_x:max_x] = d.item()                                              # tensor does not accept np.float32
+        range_tensor[0,min_y:max_y,min_x:max_x] = d.item()                                      # tensor does not accept np.float32
     
     return range_tensor
 

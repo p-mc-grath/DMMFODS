@@ -159,6 +159,10 @@ class WaymoDataset(Dataset):
 class WaymoDataset_Loader:
 
     def __init__(self, config):
+        '''
+        Creates Waymodatasets and calls default dataloader
+        '''
+
         self.mode = config.loader.mode
 
         if self.mode == 'train':

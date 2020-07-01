@@ -24,13 +24,16 @@ class Dense_U_Net_lidar(nn.Module):
     2. Added optional Concat layer to bring together rgb and lidar
     3. replacing the classifier with UNet like Decoder | feeding in output of blocks | if split streams using rgb stream
     4. Output: Heat Maps for each class
-
-    Args:   
-        check original densenet implementation
-        concat_before_block: concat of lidar and rgb directly before block after transition layer
     '''
+
     def __init__(self, config):
-    
+        '''
+        There is a cleaner way of implementing this. TODO clean-up
+
+        Arguments:
+            config: as specified in .utils.Dense_U_Net_lidar_helper 
+        '''
+
         super().__init__()
 
         self.config = config
@@ -102,7 +105,7 @@ class Dense_U_Net_lidar(nn.Module):
         num_in_features = feature_size_stack.pop()
         for i in range(len(self.block_config)):                            
             num_features = feature_size_stack.pop()
-            transp_conv_seq = nn.Sequential(OrderedDict([                                                   # denselayer like struct; reduce channels with 1x1 convs
+            transp_conv_seq = nn.Sequential(OrderedDict([                                                       # denselayer like struct; reduce channels with 1x1 convs
                 ('norm0', nn.BatchNorm2d(num_in_features)),
                 ('relu0', nn.ReLU(inplace=True)),
                 ('conv_reduce', nn.Conv2d(num_in_features, num_features, 
@@ -204,21 +207,21 @@ class Dense_U_Net_lidar(nn.Module):
         # get number of parameters of model
         self.num_params = sum(p.numel() for p in self.parameters())
 
-    '''
-    unnecessarily complex because init respects original densenet implementation; see __init__
-
-    Arguments:
-        rgb_data: batch, channels, W, H (W and H as lidar_data!)
-        lidar_data: batch, channels, W, H (W and H as rgb_data!)
-    '''
     def forward(self, stream_1_data, stream_2_data):
-        
+        '''
+        unnecessarily complex because init respects original densenet implementation; see __init__
+
+        Arguments:
+            stream_1_data: batch, channels, W, H (W and H as lidar_data!)
+            stream_2_data: batch, channels, W, H (W and H as rgb_data!)
+        '''
+
         # stack of encoding features used in decoder
         HxW_shape_stack = deque()
         features_from_enc_stack = deque()
 
         # assigning name
-        if self.fusion == 'no':                                                                     # allowing net to work with lidar only
+        if self.fusion == 'no':                                                                                 # allowing net to work with lidar only
             features_from_enc_stack.append(stream_1_data)
             features = stream_1_data
         elif self.fusion == 'early':
@@ -233,7 +236,7 @@ class Dense_U_Net_lidar(nn.Module):
 
         # encoding
         for i, enc_module in enumerate(self.features): 
-            features = enc_module(features)                                                         # encode
+            features = enc_module(features)                                                                     # encode
 
             # concat lidar and rgb after transition
             if self.fusion == 'mid' and i == self.concat_after_module_idx: 
@@ -242,20 +245,20 @@ class Dense_U_Net_lidar(nn.Module):
                 features = self.concat_module(features)
 
             # save features for decoder in stack
-            if i == self.num_layers_before_blocks-2:                                                # get size before maxpool before first block
+            if i == self.num_layers_before_blocks-2:                                                            # get size before maxpool before first block
                 HxW_shape_stack.append(features.size())
-            if isinstance(enc_module, _DenseBlock) and i<len(self.features)-1:                      # only blocks but skip last
+            if isinstance(enc_module, _DenseBlock) and i<len(self.features)-1:                                  # only blocks but skip last
                 features_from_enc_stack.append(features)                            
                 HxW_shape_stack.append(features.size())                             
                                
         # decoding | ugly quick and dirty implementation 
         for i, dec_module in enumerate(self.decoder):
             if not isinstance(dec_module, nn.ConvTranspose2d):                                      
-                if i > 0 and not isinstance(dec_module, nn.Upsample):                                                                           # concat upsampled data and data from encoder
-                    features = torch.cat((features, features_from_enc_stack.pop()), 1)              # concat
-                features = dec_module(features)                                                     # decode
+                if i > 0 and not isinstance(dec_module, nn.Upsample):                                           # concat upsampled data and data from encoder
+                    features = torch.cat((features, features_from_enc_stack.pop()), 1)                          # concat
+                features = dec_module(features)                                                                 # decode
             else:                                                                                   
-                features = dec_module(features, output_size=HxW_shape_stack.pop())                  # decode                                  # decode
+                features = dec_module(features, output_size=HxW_shape_stack.pop())                              # decode
         
         # scale to heat maps
         features = torch.cat((features, features_from_enc_stack.pop()), 1)
@@ -270,6 +273,7 @@ def _load_state_dict(model, config, model_url, progress):
     copy from https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py
     !!added sencond part before last line; that's why cannot simply import function 
     '''
+
     # '.'s are no longer allowed in module names, but previous _DenseLayer
     # has keys 'norm.1', 'relu.1', 'conv.1', 'norm.2', 'relu.2', 'conv.2'.
     # They are also in the checkpoints in model_urls. This pattern is used
@@ -310,6 +314,7 @@ def _dense_u_net_lidar(arch, growth_rate, block_config, num_init_features, pretr
     creates model
     loads pretrained weights if wanted
     '''
+
     if config is None:
         config = get_config(os.path.join('content', 'mnt', 'My Drive', 'Colab Notebooks', 'DeepCV_Packages'))
     
@@ -335,6 +340,7 @@ def densenet121_u_lidar(pretrained=False, progress=True, config=None):
         memory_efficient (bool) - If True, uses checkpointing. Much more memory efficient,
           but slower. Default: *False*. See `"paper" <https://arxiv.org/pdf/1707.06990.pdf>`_
     """
+
     return _dense_u_net_lidar('densenet121', 32, (6, 12, 24, 16), 64, pretrained, progress,
                     config)
 
@@ -348,6 +354,7 @@ def densenet161_u_lidar(pretrained=False, progress=True, config=None):
         memory_efficient (bool) - If True, uses checkpointing. Much more memory efficient,
           but slower. Default: *False*. See `"paper" <https://arxiv.org/pdf/1707.06990.pdf>`_
     """
+
     return _dense_u_net_lidar('densenet161', 48, (6, 12, 36, 24), 96, pretrained, progress,
                     config)
 
@@ -361,6 +368,7 @@ def densenet169_u_lidar(pretrained=False, progress=True, config=None):
         memory_efficient (bool) - If True, uses checkpointing. Much more memory efficient,
           but slower. Default: *False*. See `"paper" <https://arxiv.org/pdf/1707.06990.pdf>`_
     """
+
     return _dense_u_net_lidar('densenet169', 32, (6, 12, 32, 32), 64, pretrained, progress,
                     config)
 
@@ -374,5 +382,6 @@ def densenet201_u_lidar(pretrained=False, progress=True, config=None):
         memory_efficient (bool) - If True, uses checkpointing. Much more memory efficient,
           but slower. Default: *False*. See `"paper" <https://arxiv.org/pdf/1707.06990.pdf>`_
     """
+
     return _dense_u_net_lidar('densenet201', 32, (6, 12, 48, 32), 64, pretrained, progress,
                     config)

@@ -21,13 +21,24 @@ cudnn.benchmark = True
 class Dense_U_Net_lidar_Agent:
     def __init__(self, config=None, torchvision_init=True):
         '''
+        Handles everything
+        - training, validation testing
+        - checkpoint loading and saving
+        - logging | tensorboard summaries
+
+        Accordingly everything is specified here
+        - model
+        - loss
+        - optimizer
+        - lr scheduling
+
         Arguments:  
             torchvision_init: boolean
                 - True:     load densenet state dict from torchvision
                 - False:    load checkpoint; if no checkpoint just normal init
         '''
 
-        self.logger = logging.getLogger("Agent")
+        self.logger = logging.getLogger('Agent')
 
         # model and config if lazy
         self.model = densenet121_u_lidar(pretrained=torchvision_init, 
@@ -64,13 +75,13 @@ class Dense_U_Net_lidar_Agent:
         # if cuda is available export model to gpu
         self.cuda = torch.cuda.is_available()
         if self.cuda:
-            self.device = torch.device("cuda")
+            self.device = torch.device('cuda')
             torch.cuda.manual_seed_all(self.config.agent.seed)
-            self.logger.info("Operation will be on *****GPU-CUDA***** ")
+            self.logger.info('Operation will be on *****GPU-CUDA***** ')
         else:
-            self.device = torch.device("cpu")
+            self.device = torch.device('cpu')
             torch.manual_seed(self.config.agent.seed)
-            self.logger.info("Operation will be on *****CPU***** ")
+            self.logger.info('Operation will be on *****CPU***** ')
         self.model = self.model.to(self.device)
         self.loss = self.loss.to(self.device)
 
@@ -117,15 +128,19 @@ class Dense_U_Net_lidar_Agent:
             'epoch', 'iteration', 'best_val_iou', 'state_dict', 'optimizer'
             where state_dict is model statedict
             and optimizer is optimizer statesict
+        
+        Arguments:
+            filename: only name with file type extension | path in config.dir.current_run.checkpoints
         '''
 
         # use best if not specified
         if filename is None:
             filename = self.config.agent.best_checkpoint_name
 
+        # load according to key
         filepath = os.path.join(self.config.dir.current_run.checkpoints, filename)
         try:
-            self.logger.info("Loading checkpoint '{}'".format(filename))
+            self.logger.info('Loading checkpoint '{}''.format(filename))
             checkpoint = torch.load(filepath)
 
             self.current_epoch = checkpoint[self.config.agent.checkpoint.epoch]
@@ -140,12 +155,12 @@ class Dense_U_Net_lidar_Agent:
             self.optimizer.load_state_dict(checkpoint[
                 self.config.agent.checkpoint.optimizer])
 
-            self.logger.info("Checkpoint loaded successfully from '{}' at (epoch {}) at (iteration {})\n"
+            self.logger.info('Checkpoint loaded successfully from '{}' at (epoch {}) at (iteration {})\n'
                              .format(self.config.dir.current_run.checkpoints, checkpoint['epoch'], checkpoint['train_iteration']))
         except OSError:
-            warnings.warn("No checkpoint exists from '{}'. Skipping...".format(filepath))
-            self.logger.info("No checkpoint exists from '{}'. Skipping...".format(filepath))
-            self.logger.info("**First time to train**")
+            warnings.warn('No checkpoint exists from '{}'. Skipping...'.format(filepath))
+            self.logger.info('No checkpoint exists from '{}'. Skipping...'.format(filepath))
+            self.logger.info('**First time to train**')
 
     def run(self):
         '''
@@ -162,7 +177,7 @@ class Dense_U_Net_lidar_Agent:
                 self.train()
 
         except KeyboardInterrupt:
-            self.logger.info("You have entered CTRL+C.. Wait to finalize")
+            self.logger.info('You have entered CTRL+C.. Wait to finalize')
 
     def train(self):
         '''
@@ -204,18 +219,21 @@ class Dense_U_Net_lidar_Agent:
 
         # Initialize progress visualization and get batch
         tqdm_batch = tqdm(self.data_loader.train_loader, total=self.data_loader.train_iterations,
-                          desc="Epoch-{}-".format(self.current_epoch))
+                          desc='Epoch-{}-'.format(self.current_epoch))
         
         # Set the model to be in training mode
         self.model.train()
 
+        # metric counters
         current_batch = 0
         number_of_batches = self.data_loader.train_loader.dataset.__len__()
         epoch_loss = torch.zeros((number_of_batches, self.config.model.num_classes)).to(self.device)
         epoch_iou = torch.zeros((number_of_batches, self.config.model.num_classes))
         epoch_iou_nans = torch.zeros((number_of_batches, self.config.model.num_classes))
         epoch_acc = torch.zeros((number_of_batches, self.config.model.num_classes)).to(self.device)
+        
         for image, lidar, ht_map in tqdm_batch:
+            
             # push to gpu if possible
             if self.cuda:
                 image = image.cuda(non_blocking=self.config.loader.async_loading)
@@ -253,21 +271,21 @@ class Dense_U_Net_lidar_Agent:
                 'Cyclist': loss_per_class[2],
                 'Overall': torch.mean(loss_per_class)
             }
-            self.train_summary_writer.add_scalars("Training/Loss", loss_dict, self.current_train_iteration)
+            self.train_summary_writer.add_scalars('Training/Loss', loss_dict, self.current_train_iteration)
             acc_dict = {
                 'Vehicle': acc_per_class[0],
                 'Pedestrian': acc_per_class[1],
                 'Cyclist': acc_per_class[2],
                 'Overall': torch.mean(acc_per_class)
             }
-            self.train_summary_writer.add_scalars("Training/Accuracy", acc_dict, self.current_train_iteration)
+            self.train_summary_writer.add_scalars('Training/Accuracy', acc_dict, self.current_train_iteration)
             iou_dict = {
                 'Vehicle': iou_per_class[0],
                 'Pedestrian': iou_per_class[1],
                 'Cyclist': iou_per_class[2],
                 'Overall': torch.mean(iou_per_class)
             }
-            self.train_summary_writer.add_scalars("Training/IoU", iou_dict, self.current_train_iteration)
+            self.train_summary_writer.add_scalars('Training/IoU', iou_dict, self.current_train_iteration)
 
             # counters
             self.current_train_iteration += 1
@@ -279,13 +297,13 @@ class Dense_U_Net_lidar_Agent:
         if self.config.optimizer.lr_scheduler.want:
             self.lr_scheduler.step()
 
+        # log
         avg_epoch_loss = torch.mean(epoch_loss, axis=0).tolist()
         avg_epoch_iou = torch.mean(epoch_iou, axis=0).tolist()
         cum_epoch_nans = torch.sum(epoch_iou_nans, axis=0).tolist()
         avg_epoch_acc = torch.mean(epoch_acc, axis=0).tolist()
-        
-        self.logger.info("Training at Epoch-" + str(self.current_epoch) + " | " + "Average Loss: " + str(
-             avg_epoch_loss) + " | " + "Average IoU: " + str(avg_epoch_iou) + ' | ' + 'Number of NaNs: ' + str(
+        self.logger.info('Training at Epoch-' + str(self.current_epoch) + ' | ' + 'Average Loss: ' + str(
+             avg_epoch_loss) + ' | ' + 'Average IoU: ' + str(avg_epoch_iou) + ' | ' + 'Number of NaNs: ' + str(
                  cum_epoch_nans) + ' | ' + 'Average Accuracy: ' + str(avg_epoch_acc))
 
     def validate(self):
@@ -293,24 +311,27 @@ class Dense_U_Net_lidar_Agent:
         One epoch validation
         
         return: 
-            average acc per class
+            average IoU per class
         '''
 
         # Initialize progress visualization and get batch
         # !self.data_loader.valid_loader works for both valid and test 
         tqdm_batch = tqdm(self.data_loader.valid_loader, total=self.data_loader.valid_iterations,
-                          desc="Valiation at -{}-".format(self.current_epoch))
+                          desc='Valiation at -{}-'.format(self.current_epoch))
 
         # set the model in training mode
         self.model.eval()
 
+        # metric counters
         current_batch = 0
         number_of_batches = self.data_loader.valid_loader.dataset.__len__()
         epoch_loss = torch.zeros((number_of_batches, self.config.model.num_classes)).to(self.device)
         epoch_iou = torch.zeros((number_of_batches, self.config.model.num_classes))
         epoch_iou_nans = torch.zeros((number_of_batches, self.config.model.num_classes))
         epoch_acc = torch.zeros((number_of_batches, self.config.model.num_classes)).to(self.device)
+        
         for image, lidar, ht_map in tqdm_batch:
+            
             # push to gpu if possible
             if self.cuda:
                 image = image.cuda(non_blocking=self.config.loader.async_loading)
@@ -343,33 +364,33 @@ class Dense_U_Net_lidar_Agent:
                 'Cyclist': loss_per_class[2],
                 'Overall': torch.mean(loss_per_class)
             }
-            self.val_summary_writer.add_scalars("Validation/Loss", loss_dict, self.current_val_iteration)
+            self.val_summary_writer.add_scalars('Validation/Loss', loss_dict, self.current_val_iteration)
             acc_dict = {
                 'Vehicle': acc_per_class[0],
                 'Pedestrian': acc_per_class[1],
                 'Cyclist': acc_per_class[2],
                 'Overall': torch.mean(acc_per_class)
             }
-            self.val_summary_writer.add_scalars("Validation/Accuracy", acc_dict, self.current_val_iteration)
+            self.val_summary_writer.add_scalars('Validation/Accuracy', acc_dict, self.current_val_iteration)
             iou_dict = {
                 'Vehicle': iou_per_class[0],
                 'Pedestrian': iou_per_class[1],
                 'Cyclist': iou_per_class[2],
                 'Overall': torch.mean(iou_per_class)
             }
-            self.val_summary_writer.add_scalars("Validation/IoU", iou_dict, self.current_val_iteration)
+            self.val_summary_writer.add_scalars('Validation/IoU', iou_dict, self.current_val_iteration)
 
             # counters
             self.current_val_iteration += 1
             current_batch += 1
 
+        # log
         avg_epoch_loss = torch.mean(epoch_loss, axis=0).tolist()
         avg_epoch_iou = torch.mean(epoch_iou, axis=0).tolist()
         cum_epoch_nans = torch.sum(epoch_iou_nans, axis=0).tolist()
         avg_epoch_acc = torch.mean(epoch_acc, axis=0).tolist()
-        
-        self.logger.info("Validation at Epoch-" + str(self.current_epoch) + " | " + "Average Loss: " + str(
-             avg_epoch_loss) + " | " + "Average IoU: " + str(avg_epoch_iou) + ' | ' + 'Number of NaNs: ' + str(
+        self.logger.info('Validation at Epoch-' + str(self.current_epoch) + ' | ' + 'Average Loss: ' + str(
+             avg_epoch_loss) + ' | ' + 'Average IoU: ' + str(avg_epoch_iou) + ' | ' + 'Number of NaNs: ' + str(
                  cum_epoch_nans) + ' | ' + 'Average Accuracy: ' + str(avg_epoch_acc))
 
         tqdm_batch.close()
@@ -422,7 +443,8 @@ class Dense_U_Net_lidar_Agent:
         '''
         Close all Writers and print time
         '''
-        self.logger.info("Please wait while finalizing the operation.. Thank you")
+
+        self.logger.info('Please wait while finalizing the operation.. Thank you')
         self.train_summary_writer.close()
         self.val_summary_writer.close()
         print('ending ' + self.config.loader.mode + ' at ' + str(datetime.now()))
