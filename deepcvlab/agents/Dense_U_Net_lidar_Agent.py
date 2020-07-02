@@ -140,7 +140,7 @@ class Dense_U_Net_lidar_Agent:
         # load according to key
         filepath = os.path.join(self.config.dir.current_run.checkpoints, filename)
         try:
-            self.logger.info('Loading checkpoint '{}''.format(filename))
+            self.logger.info('Loading checkpoint {}'.format(filename))
             checkpoint = torch.load(filepath)
 
             self.current_epoch = checkpoint[self.config.agent.checkpoint.epoch]
@@ -155,11 +155,11 @@ class Dense_U_Net_lidar_Agent:
             self.optimizer.load_state_dict(checkpoint[
                 self.config.agent.checkpoint.optimizer])
 
-            self.logger.info('Checkpoint loaded successfully from '{}' at (epoch {}) at (iteration {})\n'
+            self.logger.info('Checkpoint loaded successfully from {} at (epoch {}) at (iteration {})\n'
                              .format(self.config.dir.current_run.checkpoints, checkpoint['epoch'], checkpoint['train_iteration']))
         except OSError:
-            warnings.warn('No checkpoint exists from '{}'. Skipping...'.format(filepath))
-            self.logger.info('No checkpoint exists from '{}'. Skipping...'.format(filepath))
+            warnings.warn('No checkpoint exists from {}. Skipping...'.format(filepath))
+            self.logger.info('No checkpoint exists from {}. Skipping...'.format(filepath))
             self.logger.info('**First time to train**')
 
     def run(self):
@@ -405,8 +405,8 @@ class Dense_U_Net_lidar_Agent:
 
         hyper_params = {
             'loss_func': self.config.loss.func,
-            'loss_alpha': self.config.loss.alpha,                                                         
-            'loss_gamma': self.config.loss.gamma,    
+            'loss_alpha': torch.tensor(self.config.loss.alpha),                                                         
+            'loss_gamma': torch.tensor(self.config.loss.gamma),    
             'loss_skip_v_every_n_its': self.config.loss.skip_v_every_n_its,
             'loss_skip_p_every_n_its': self.config.loss.skip_p_every_n_its,
             'loss_skip_b_every_n_its': self.config.loss.skip_b_every_n_its,
