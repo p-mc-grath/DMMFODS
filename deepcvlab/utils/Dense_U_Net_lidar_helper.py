@@ -686,6 +686,7 @@ def save_data_in_batch(config, buckets, mode):
     indeces = list(range(len(files)))
     np.random.shuffle(indeces)
     vec = torch.empty((config.dataset.batch_size,7,128,192))
+    batch_dict = {}
 
     # create train, val, test dir
     mode_path = join(config.dir.data.root, mode)
@@ -700,11 +701,9 @@ def save_data_in_batch(config, buckets, mode):
             Path(save_dir_batch).mkdir(exist_ok = True)
             Path(save_dir_labels).mkdir(exist_ok=True)
 
-        # batch labels
-        batch_dict = {}
-
         # load minibatch into vec and save
         for j in range(config.dataset.batch_size):
+            
             idx = indeces[i*config.dataset.batch_size + j]
 
             # create lidar and heatmap paths
