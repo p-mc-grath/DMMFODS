@@ -687,12 +687,21 @@ def save_data_in_batch(config, buckets, mode):
     np.random.shuffle(indeces)
     vec = torch.empty((config.dataset.batch_size,7,128,192))
 
-    # create subdirs
-    Path(join(config.dir.data.root, mode)).mkdir(exist_ok=True)
+    # create train, val, test dir
+    mode_path = join(config.dir.data.root, mode)
+    Path(mode_path).mkdir(exist_ok=True)
+
     for i in range(len(indeces)//config.dataset.batch_size):
+        # create subdirs (only necessary for google drive)
+        # create subsubdir for batch label dictionaries
         if i%99 == 0:
-            save_dir = join(config.dir.data.root, mode, 'subset' + str(i//99))
-            Path(save_dir).mkdir(exist_ok = True)
+            save_dir_batch = join(mode_path, 'subset' + str(i//99))
+            save_dir_labels = join(save_dir_batch, 'labels')
+            Path(save_dir_batch).mkdir(exist_ok = True)
+            Path(save_dir_labels).mkdir(exist_ok=True)
+
+        # batch labels
+        batch_dict = {}
 
         # load minibatch into vec and save
         for j in range(config.dataset.batch_size):
@@ -702,10 +711,36 @@ def save_data_in_batch(config, buckets, mode):
             path, image = files[idx].split('images/img_')
             lidar_file_path = join(config.dir.data.root, path, 'lidar/lidar_img_' + image)
             heat_map_file_path = join(config.dir.data.root, path, 'heat_maps/heat_map_img_' + image)
+            label_file_path = join(config.dir.data.root, path, 'labels/labels_img_' + image)
 
+            # load data into temp tensor and dict
             vec[j,:3,:,:] = torch.load(join(config.dir.data.root, files[idx]))
             vec[j,3,:,:] = torch.load(lidar_file_path)
             vec[j,4:,:,:] = torch.load(heat_map_file_path)
-        save_path = join(save_dir, str(i%99))
-        torch.save(vec, save_path)
+            batch_dict[j] = load_dict(label_file_path)
+
+        # save batch and labels
+        save_file_batch = join(save_dir_batch, str(i%99))
+        save_file_labels = join(save_dir_labels, str(i%99))
+        torch.save(vec, save_file_batch)
+        save_dict(batch_dict, save_file_labels) 
+
     print(i, 'batches serialized')
+
+############################################################################
+# converting BB output to heatmaps
+############################################################################
+
+def bbs_To_Heatmaps(bbs, size_maps=(3, 1080,1920)):
+    '''
+    creates heatmaps from Bounding Box Array
+
+    Arguments:
+        bbs: Bounding Box Array: class idx, x coord, y coord
+        size_maps: heat map dimensions: class, x, y
+    '''
+
+    heatmaps = torch.zeros(size_maps)
+    heatmaps[bbs[:, 0], bbs[:, 1], bbs[:, 2]] = 1
+
+    return heatmaps
