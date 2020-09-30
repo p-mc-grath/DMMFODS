@@ -336,7 +336,7 @@ def compute_IoU_whole_img_per_class(ground_truth_map, estimated_heat_map, thresh
     
     # if there is no BB in gt e.g. most images do not contain pedestrians or cyclists
     # -> union might be 0, leading to the following:
-    # 0/0 = nan; 1/0 = inf -> not possible as i <= u
+    # python: 0/0 = nan; 1/0 = inf -> not possible as i <= u
     # As these values would not occur with normal IoU computation, they are left to be dealt with later
     iou_per_class = intersection/union
 
@@ -692,7 +692,8 @@ def save_data_in_batch(config, buckets, mode):
     mode_path = join(config.dir.data.root, mode)
     Path(mode_path).mkdir(exist_ok=True)
 
-    for i in range(len(indeces)//config.dataset.batch_size):
+    num_batches = len(indeces)//config.dataset.batch_size
+    for i in range(num_batches):
         # create subdirs (only necessary for google drive)
         # create subsubdir for batch label dictionaries
         if i%99 == 0:
@@ -724,7 +725,7 @@ def save_data_in_batch(config, buckets, mode):
         torch.save(vec, save_file_batch)
         save_dict(batch_dict, save_file_labels) 
 
-    print(i, 'batches serialized')
+        print('{}/{} batches serialized'.format(i, num_batches))
 
 ############################################################################
 # converting BB output to heatmaps
