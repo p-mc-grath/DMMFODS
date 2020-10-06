@@ -405,8 +405,8 @@ class Dense_U_Net_lidar_Agent:
 
         hyper_params = {
             'loss_func': self.config.loss.func,
-            'loss_alpha': torch.tensor(self.config.loss.alpha),                                                         
-            'loss_gamma': torch.tensor(self.config.loss.gamma),    
+            'loss_alpha': self.config.loss.alpha,                                                         
+            'loss_gamma': self.config.loss.gamma,    
             'loss_skip_v_every_n_its': self.config.loss.skip_v_every_n_its,
             'loss_skip_p_every_n_its': self.config.loss.skip_p_every_n_its,
             'loss_skip_b_every_n_its': self.config.loss.skip_b_every_n_its,
