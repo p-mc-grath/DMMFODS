@@ -191,7 +191,7 @@ def create_config(host_dir):
     }
 
     # create subdirs according to pytorch project template: https://github.com/moemen95/Pytorch-Project-Template/tree/4d2f7bea9819fe2e5e25153c5cc87c8b5f35f4b8
-    config['dir']['root'] = join(config['dir']['hosting'], 'DeepCVLab', 'deepcvlab')
+    config['dir']['root'] = join(config['dir']['hosting'], 'DMMFODS', 'dmmfods')
     for subdir in ['agents', 'graphs', 'utils', 'datasets', 'configs', 'experiments']:
         config['dir'][subdir] = join(config['dir']['root'], subdir)
     config['dir']['graphs'] = {'models': join(config['dir']['graphs'], 'models')}
@@ -215,7 +215,7 @@ def get_config(host_dir='', file_name='config.json'):
     load from json file or create config
     '''
 
-    config = load_config(join(host_dir, 'DeepCVLab', 'deepcvlab', 'configs'), file_name)
+    config = load_config(join(host_dir, 'DMMFODS', 'dmmfods', 'configs'), file_name)
     
     if config is None:
         config = create_config(host_dir)
