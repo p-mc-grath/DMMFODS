@@ -78,13 +78,12 @@ def parse_requirements(fname='requirements.txt', with_version=True):
     return packages
 
 setup(
-        name='deepcvlab',
+        name='dmmfods',
         version=2.0,
         description='Object Detection',
         author='Paul Mc Grath',
-        author_email='pmcgrath249@gmail.com',
-        url='https://github.com/pmcgrath249/DeepCV_Lab',
-        packages=find_namespace_packages(exclude=['deepcvlab.data', 'deepcvlab.utils.waymo-od*']),
+        url='https://github.com/pmcgrath249/DMMFODS',
+        packages=find_namespace_packages(exclude=['dmmfods.data', 'dmmfods.utils.waymo-od*']),
         setup_requires=parse_requirements('requirements.txt', with_version=False),
         install_requires=parse_requirements('requirements.txt', with_version=False)  
 )
