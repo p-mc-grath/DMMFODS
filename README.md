@@ -6,7 +6,7 @@ Framework:  PyTorch
 
 Approach:  
 * U-Net like encoder-decoder structure  
-* DenseNet used as encoder  
+* DenseNet used as encoder | optional parallel encoder (stream_2) mirroring the structure of the standard encoder (stream_2), allowing to process different modalities separately up to the selected level of fusion
   * no-fusion: stream_1 processed only 
   * early-fusion: stream_1 only | input size = stream_1_in_channels + stream_2_in_channels
   * mid-fusion: parallel densenet-like | stream_1 and stream_2 
