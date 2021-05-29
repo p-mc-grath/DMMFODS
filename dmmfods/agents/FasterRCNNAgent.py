@@ -74,7 +74,7 @@ class Dense_U_Net_lidar_Agent:
 
         # in case config is empty it is created in model
         self.config = utils.get_config(
-            os.path.join('content', 'mnt', 'My Drive', 'Colab Notebooks', 'DeepCV_Packages'))
+            os.path.join('content', 'drive', 'My Drive', 'Colab Notebooks', 'DeepCV_Packages'))
 
         # dataloader
         self.data_loader = WaymoDataset_Loader(self.config)
