@@ -8,7 +8,7 @@ from ..utils.Dense_U_Net_lidar_helper import load_dict
 class WaymoDataset(StandardWaymoDataset):
     def __init__(self, mode, config):
 
-        super().__init__(self, mode, config)
+        super().__init__(mode, config)
         self.img_size = (128, 192)
 
     def get_batch(self, idx):
