@@ -59,8 +59,8 @@ class WaymoDataset(StandardWaymoDataset):
 
             # for each obj in ea image
             for i, bb in enumerate(current_sample.values()):
-                bb = bb / 10
-                boxes[i] = torch.tensor([bb['x'], bb['y'], bb['x'] + bb['width'], bb['y'] + bb['height']])
+                boxes[i] = torch.tensor(
+                    [bb['x'] / 10, bb['y'] / 10, bb['x'] / 10 + bb['width'] / 10, bb['y'] / 10 + bb['height'] / 10])
 
                 obj_cls = bb['type']  # object_class == 1  2  4: VEHICLE, PEDESTRIAN, CYCLIST
                 obj_idx = (obj_cls == 1) * 0 + (obj_cls == 2) * 1 + (obj_cls == 4) * 2
