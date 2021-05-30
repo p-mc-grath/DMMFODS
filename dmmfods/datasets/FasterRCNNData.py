@@ -23,9 +23,9 @@ class WaymoDataset(StandardWaymoDataset):
         image_batch = batch[:, :3, :, :]
         lidar_batch = batch[:, 3, :, :].unsqueeze(1)
         ht_map_batch = batch[:, 4:, :, :]
-        
+
         split_path = file_path.split('/')
-        bbs_batch = load_dict(join(*split_path[:-1], 'labels', split_path[-1]))
+        bbs_batch = load_dict('/', join(*split_path[:-1], 'labels', split_path[-1]))
 
         return image_batch, lidar_batch, ht_map_batch, self.format_bbs(bbs_batch, ht_map_batch)
 
