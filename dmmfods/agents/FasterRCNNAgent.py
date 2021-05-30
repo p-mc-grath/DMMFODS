@@ -73,7 +73,7 @@ class Dense_U_Net_lidar_Agent:
                                                                         stride=(1, 1))
 
         # in case config is empty it is created in model
-        self.config = utils.create_config()
+        self.config = utils.create_config('')
 
         # dataloader
         self.data_loader = WaymoDataset_Loader(self.config)
