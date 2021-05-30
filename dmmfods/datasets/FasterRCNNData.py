@@ -17,12 +17,15 @@ class WaymoDataset(StandardWaymoDataset):
             idx = idx.tolist()
 
         # load data corresponding to idx
-        batch = torch.load(join(self.root, self.files[idx]))
+        file_path = join(self.root, self.files[idx])
+        batch = torch.load(file_path)
 
         image_batch = batch[:, :3, :, :]
         lidar_batch = batch[:, 3, :, :].unsqueeze(1)
         ht_map_batch = batch[:, 4:, :, :]
-        bbs_batch = load_dict(join(self.root, 'labels', self.files[idx]))
+        
+        split_path = file_path.split('/')
+        bbs_batch = load_dict(join(*split_path[:-1], 'labels', split_path[-1]))
 
         return image_batch, lidar_batch, ht_map_batch, self.format_bbs(bbs_batch, ht_map_batch)
 
