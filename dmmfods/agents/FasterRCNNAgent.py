@@ -21,7 +21,7 @@ cudnn.benchmark = True
 # Customized version of: https://github.com/moemen95/Pytorch-Project-Template/blob/master/agents/condensenet.py
 
 class Dense_U_Net_lidar_Agent:
-    def __init__(self, torchvision_init=True, lidar=False):
+    def __init__(self, config=None, torchvision_init=True, lidar=False):
         '''
         Handles everything
         - training, validation testing
@@ -73,7 +73,10 @@ class Dense_U_Net_lidar_Agent:
                                                                         stride=(1, 1))
 
         # in case config is empty it is created in model
-        self.config = utils.get_config()
+        if config is None:
+            self.config = utils.get_config()
+        else:
+            self.config = config
 
         # dataloader
         self.data_loader = WaymoDataset_Loader(self.config)
