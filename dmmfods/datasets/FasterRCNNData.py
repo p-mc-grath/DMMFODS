@@ -103,7 +103,7 @@ class WaymoDataset(StandardWaymoDataset):
         return self.cache.next()
 
     def __len__(self):
-        return len(self.files) * 32 / self.batch_size
+        return int(len(self.files) * 32 / self.batch_size)
 
 
 class WaymoDataset_Loader():
