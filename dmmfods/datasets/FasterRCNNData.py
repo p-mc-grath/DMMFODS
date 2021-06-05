@@ -12,7 +12,7 @@ class Cache:
         self.counter = 0
         self.batch_size = batch_size
 
-    def __next__(self):
+    def next(self):
         image_batch = self.batch[self.counter:self.counter + self.batch_size, :3, :, :]
         lidar_batch = self.batch[self.counter:self.counter + self.batch_size, 3, :, :].unsqueeze(1)
         ht_map_batch = self.batch[self.counter:self.counter + self.batch_size, 4:, :, :]
@@ -25,7 +25,7 @@ class Cache:
     def isempty(self):
         return self.batch is None or self.counter > 28
 
-    def __add__(self, batch, bbs):
+    def add(self, batch, bbs):
         self.batch = batch
         self.bbs = bbs
         self.counter = 0
