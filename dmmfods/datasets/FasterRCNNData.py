@@ -5,33 +5,30 @@ from ..datasets.WaymoData import WaymoDataset as StandardWaymoDataset
 from ..utils.Dense_U_Net_lidar_helper import load_dict
 
 
-class WaymoDataset(StandardWaymoDataset):
-    def __init__(self, mode, config):
+class Cache:
+    def __init__(self, batch_size):
+        self.batch = None
+        self.bbs = None
+        self.counter = 0
+        self.batch_size = batch_size
 
-        super().__init__(mode, config)
-        self.img_size = (128, 192)
+    def __next__(self):
+        image_batch = self.batch[self.counter:self.counter + self.batch_size, :3, :, :]
+        lidar_batch = self.batch[self.counter:self.counter + self.batch_size, 3, :, :].unsqueeze(1)
+        ht_map_batch = self.batch[self.counter:self.counter + self.batch_size, 4:, :, :]
+        bbs_batch = [self.bbs[str(val)] for val in range(self.counter + 1, self.counter + self.batch_size + 1)]
 
-    def get_batch(self, idx):
-
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-
-        # load data corresponding to idx
-        file_path = join(self.root, self.files[idx])
-        batch = torch.load(file_path)
-
-        image_batch = batch[:4, :3, :, :]
-        lidar_batch = batch[:4, 3, :, :].unsqueeze(1)
-        ht_map_batch = batch[:4, 4:, :, :]
-
-        split_path = file_path.split('/')
-        bbs_batch = load_dict(join('/', *split_path[:-1], 'labels', split_path[-1]))
+        self.counter += self.batch_size
 
         return image_batch, lidar_batch, ht_map_batch, self.format_bbs(bbs_batch, ht_map_batch)
 
-    def format_maps(self, maps):
-        # segmentation masks per bb!!!
-        pass
+    def isempty(self):
+        return self.batch is None or self.counter > 28
+
+    def __add__(self, batch, bbs):
+        self.batch = batch
+        self.bbs = bbs
+        self.counter = 0
 
     def format_bbs(self, bbs, ht_maps):
         '''
@@ -50,10 +47,7 @@ class WaymoDataset(StandardWaymoDataset):
 
         formatted_bbs = []
         # for each image
-        for j, current_sample in enumerate(bbs.values()):
-
-            if j >= 4:
-                continue
+        for j, current_sample in enumerate(bbs):
 
             # make space
             boxes = torch.zeros((len(current_sample), 4))
@@ -80,6 +74,36 @@ class WaymoDataset(StandardWaymoDataset):
             formatted_bbs.append(current_dict)
 
         return formatted_bbs
+
+
+class WaymoDataset(StandardWaymoDataset):
+    def __init__(self, mode, config):
+
+        super().__init__(mode, config)
+        self.img_size = (128, 192)
+        self.counter = 0
+        self.batch_size = config.dataset.batch_size
+        self.cache = Cache(self.batch_size)
+
+    def get_batch(self, idx):
+
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        if self.cache.isempty():
+            # load data corresponding to idx
+            file_path = join(self.root, self.files[self.counter])
+            batch = torch.load(file_path)
+            split_path = file_path.split('/')
+            bbs_batch = load_dict(join('/', *split_path[:-1], 'labels', split_path[-1]))
+            self.cache.add(batch, bbs_batch)
+
+            self.counter += 1
+
+        return self.cache.next()
+
+    def __len__(self):
+        return len(self.files) * 32 / self.batch_size
 
 
 class WaymoDataset_Loader():
