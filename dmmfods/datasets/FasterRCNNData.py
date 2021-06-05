@@ -57,7 +57,7 @@ class WaymoDataset(StandardWaymoDataset):
 
             # make space
             boxes = torch.zeros((len(current_sample), 4))
-            labels = torch.zeros((len(current_sample)))
+            labels = torch.zeros((len(current_sample)), dtype=torch.int64)
             masks = torch.zeros((len(current_sample), *self.img_size))
 
             # for each obj in ea image
