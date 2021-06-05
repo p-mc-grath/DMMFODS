@@ -10,6 +10,7 @@ class Cache:
         self.batch = None
         self.bbs = None
         self.counter = 0
+        self.img_size = (128, 192)
         self.batch_size = batch_size
 
     def next(self):
@@ -80,7 +81,6 @@ class WaymoDataset(StandardWaymoDataset):
     def __init__(self, mode, config):
 
         super().__init__(mode, config)
-        self.img_size = (128, 192)
         self.counter = 0
         self.batch_size = config.dataset.batch_size
         self.cache = Cache(self.batch_size)
