@@ -299,7 +299,7 @@ class Dense_U_Net_lidar_Agent:
 
             epoch_loss[current_batch] = losses.item()
 
-            self.train_summary_writer.add_scalars('Training/Loss', loss_dict.detach(), self.current_train_iteration)
+            self.train_summary_writer.add_scalars('Training/Loss', losses.item(), self.current_train_iteration)
 
             # counters
             self.current_train_iteration += 1
