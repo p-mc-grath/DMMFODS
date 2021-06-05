@@ -16,7 +16,7 @@ class Cache:
         image_batch = self.batch[self.counter:self.counter + self.batch_size, :3, :, :]
         lidar_batch = self.batch[self.counter:self.counter + self.batch_size, 3, :, :].unsqueeze(1)
         ht_map_batch = self.batch[self.counter:self.counter + self.batch_size, 4:, :, :]
-        bbs_batch = [self.bbs[str(val)] for val in range(self.counter + 1, self.counter + self.batch_size + 1)]
+        bbs_batch = [self.bbs[val] for val in range(self.counter + 1, self.counter + self.batch_size + 1)]
 
         self.counter += self.batch_size
 
