@@ -270,6 +270,8 @@ class Dense_U_Net_lidar_Agent:
             if self.cuda:
                 image = image.cuda(non_blocking=self.config.loader.async_loading)
                 lidar = lidar.cuda(non_blocking=self.config.loader.async_loading)
+                for k in range(len(targets)):
+                    targets[k]['masks'] = targets[k]['masks'].cuda(non_blocking=self.config.loader.async_loading)
 
             # forward pass
             '''
