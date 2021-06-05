@@ -227,8 +227,8 @@ class Dense_U_Net_lidar_Agent:
         self.config.optimizer.func = str(self.optimizer)
 
         # make sure to remember the hyper params
-        self.add_hparams_summary_writer()
-        self.save_hparams_json()
+        # self.add_hparams_summary_writer()
+        # self.save_hparams_json()
 
         # Iterate epochs | train one epoch | validate | save checkpoint
         for epoch in range(self.current_epoch, self.config.agent.max_epoch):
