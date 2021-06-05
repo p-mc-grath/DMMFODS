@@ -20,9 +20,9 @@ class WaymoDataset(StandardWaymoDataset):
         file_path = join(self.root, self.files[idx])
         batch = torch.load(file_path)
 
-        image_batch = batch[:, :3, :, :]
-        lidar_batch = batch[:, 3, :, :].unsqueeze(1)
-        ht_map_batch = batch[:, 4:, :, :]
+        image_batch = batch[:16, :3, :, :]
+        lidar_batch = batch[:16, 3, :, :].unsqueeze(1)
+        ht_map_batch = batch[:16, 4:, :, :]
 
         split_path = file_path.split('/')
         bbs_batch = load_dict(join('/', *split_path[:-1], 'labels', split_path[-1]))
@@ -51,6 +51,9 @@ class WaymoDataset(StandardWaymoDataset):
         formatted_bbs = []
         # for each image
         for j, current_sample in enumerate(bbs.values()):
+
+            if j >= 16:
+                continue
 
             # make space
             boxes = torch.zeros((len(current_sample), 4))
