@@ -366,14 +366,14 @@ class Dense_U_Net_lidar_Agent:
             prediction_list = self.model(model_input)
 
             # TODO alt version thresholding masks and then same
-            # TODO expand masks into ht maps as before, rest should be the same
             # in 2nd dim change values into dimensions
             # -> join masks of same type -> torch.max(masks[indeces_predicted_class], dim=...)
             prediction = torch.zeros_like(ht_map)
             for sample_i, sample_prediction in enumerate(prediction_list):
                 for obj_class in [0, 1, 2]:
                     class_idx = sample_prediction['labels'] == obj_class
-                    prediction[sample_i, obj_class] = torch.max(sample_prediction['masks'][class_idx], dim=0)
+                    if torch.any(class_idx):
+                        prediction[sample_i, obj_class] = torch.max(sample_prediction['masks'][class_idx], dim=0)
 
             # pixel-wise loss
             current_loss = self.loss(prediction, ht_map)
