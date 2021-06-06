@@ -373,7 +373,7 @@ class Dense_U_Net_lidar_Agent:
                 for obj_class in [0, 1, 2]:
                     class_idx = sample_prediction['labels'] == obj_class
                     if torch.any(class_idx):
-                        prediction[sample_i, obj_class] = torch.max(sample_prediction['masks'][class_idx], dim=0)
+                        prediction[sample_i, obj_class], _ = torch.max(sample_prediction['masks'][class_idx], dim=0)
 
             # pixel-wise loss
             current_loss = self.loss(prediction, ht_map)
