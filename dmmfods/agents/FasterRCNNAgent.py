@@ -3,6 +3,8 @@ import logging
 import torch
 import torch.nn as nn
 from torchvision.models.detection import maskrcnn_resnet50_fpn
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 import warnings
 import numpy as np
 from torch.backends import cudnn
@@ -40,6 +42,12 @@ class Dense_U_Net_lidar_Agent:
                 - False:    load checkpoint; if no checkpoint just normal init
         '''
 
+        # in case config is empty it is created in model
+        if config is None:
+            self.config = utils.get_config()
+        else:
+            self.config = config
+
         self.logger = logging.getLogger('Agent')
 
         # model and config if lazy
@@ -47,36 +55,32 @@ class Dense_U_Net_lidar_Agent:
                                            progress=True,
                                            num_classes=91,  # have to if pretrained
                                            pretrained_backbone=True,
-                                           trainable_backbone_layers=3)  # 0 being noe and 5 all
+                                           trainable_backbone_layers=5)  # 0 being noe and 5 all
 
-        '''
-        # get number of input features for the classifier
-        in_features = model.roi_heads.box_predictor.cls_score.in_features
         # replace the pre-trained head with a new one
-        model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
-        
-        # now get the number of input features for the mask classifier
-        in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
-        hidden_layer = 256
+        num_classes = config.model.num_classes + 1  # classes + background
+        in_features = self.model.roi_heads.box_predictor.cls_score.in_features
+        self.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+
+        # todo check if this is instance vs sematnic segmenation
         # and replace the mask predictor with a new one
-        model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask,
-                                                            hidden_layer,
-                                                            num_classes)
-        '''
+        in_features_mask = self.model.roi_heads.mask_predictor.conv5_mask.in_channels
+        hidden_layer = 256
+        self.model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask,
+                                                                hidden_layer,
+                                                                num_classes)
+
         self.lidar = lidar
         if self.lidar:
+            # todo still have to fix tranformations before net -> model.transform
+
             # add one channel to first layer
+            model_in_layer = self.model.backbone.body.conv1.state_dict()
+            model_in_layer['weight'] = torch.cat(
+                (model_in_layer['weight'], nn.init.kaiming_normal_(torch.ones((64, 1, 7, 7)))), dim=1)
             self.model.backbone.body.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
                                                        bias=False)
-        # replace final layer to 4 classes: background, vehicle, pedestrian, cyclist
-        self.model.roi_heads.mask_predictor.mask_fcn_logits = nn.Conv2d(256, 4, kernel_size=(1, 1),
-                                                                        stride=(1, 1))
-
-        # in case config is empty it is created in model
-        if config is None:
-            self.config = utils.get_config()
-        else:
-            self.config = config
+            self.model.backbone.body.conv1.load_state_dict(model_in_layer)
 
         # dataloader
         self.data_loader = WaymoDataset_Loader(self.config)
