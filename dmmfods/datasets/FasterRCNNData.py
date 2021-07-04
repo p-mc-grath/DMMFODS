@@ -47,10 +47,10 @@ class Cache:
         '''
 
         def obj_mask(mask, obj_bb):
-            mask[:, :obj_bb[0]] = 0
-            mask[:, obj_bb[2]:] = 0
-            mask[:obj_bb[1], :] = 0
-            mask[obj_bb[3]:, :] = 0
+            mask[:, :int(obj_bb[0])] = 0
+            mask[:, int(obj_bb[2]):] = 0
+            mask[:int(obj_bb[1]), :] = 0
+            mask[int(obj_bb[3]):, :] = 0
             return mask
 
         formatted_bbs = []
@@ -68,11 +68,11 @@ class Cache:
                     [bb['x'] / 10, bb['y'] / 10, bb['x'] / 10 + bb['width'] / 10, bb['y'] / 10 + bb['height'] / 10])
 
                 obj_cls = bb['type']  # object_class == 1  2  4: VEHICLE, PEDESTRIAN, CYCLIST
-                obj_idx = (obj_cls == 1) * 0 + (obj_cls == 2) * 1 + (obj_cls == 4) * 2
+                obj_idx = (obj_cls == 1) * 0 + (obj_cls == 2) * 1 + (obj_cls == 4) * 2  # TODO, background = 0??
 
                 labels[i] = obj_idx
 
-                masks[i] = obj_mask(ht_maps[j, obj_idx], boxes[i])  # remove all other objects?
+                masks[i] = obj_mask(ht_maps[j, obj_idx], boxes[i])  # remove all other objects
 
             current_dict = {
                 'boxes': boxes,
