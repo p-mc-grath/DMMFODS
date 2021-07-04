@@ -14,8 +14,8 @@ class Cache:
         self.batch_size = batch_size
 
     def next(self):
-        image_batch = self.batch[self.counter:self.counter + self.batch_size, :3, :, :]
-        lidar_batch = self.batch[self.counter:self.counter + self.batch_size, 3, :, :].unsqueeze(1)
+        image_batch = self.batch[self.counter:self.counter + self.batch_size, :3, :, :] / 255  # expected [0,1]
+        lidar_batch = self.batch[self.counter:self.counter + self.batch_size, 3, :, :].unsqueeze(1) / 255  # [0,1]
         ht_map_batch = self.batch[self.counter:self.counter + self.batch_size, 4:, :, :]
         bbs_batch = [self.bbs[val] for val in range(self.counter, self.counter + self.batch_size)]
 
@@ -46,6 +46,13 @@ class Cache:
         masks (UInt8Tensor[N, H, W]): the segmentation binary masks for each instance; H,W -> whole image
         '''
 
+        def obj_mask(mask, obj_bb):
+            mask[:, :obj_bb[0]] = 0
+            mask[:, obj_bb[2]:] = 0
+            mask[:obj_bb[1], :] = 0
+            mask[obj_bb[3]:, :] = 0
+            return mask
+
         formatted_bbs = []
         # for each image
         for j, current_sample in enumerate(bbs):
@@ -65,7 +72,7 @@ class Cache:
 
                 labels[i] = obj_idx
 
-                masks[i] = ht_maps[j, obj_idx]  # TODO actually need to remove all other objects?
+                masks[i] = obj_mask(ht_maps[j, obj_idx], boxes[i])  # remove all other objects?
 
             current_dict = {
                 'boxes': boxes,
